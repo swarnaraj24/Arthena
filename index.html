@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arthena – Wealth Guided by Wisdom</title>
+<link rel="stylesheet" href="arthena.css">
+<style>
+  .page { display:none; }
+  .page-income-header {
+    display:grid; grid-template-columns:1fr 1fr;
+    gap:16px; margin-bottom:16px;
+  }
+  .subpage-stat {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); padding:14px;
+  }
+  .subpage-stat .lbl { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.4px; }
+  .subpage-stat .val { font-size:20px; font-weight:700; margin-top:4px; }
+  .txn-page-stats {
+    display:grid; grid-template-columns:repeat(4,1fr);
+    gap:14px; margin-bottom:18px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ──────────────────────────────────────────────── -->
+<nav class="sidebar">
+  <div class="logo">
+    <div class="logo-name">⚜ Arthena</div>
+    <div class="logo-tag">Wealth guided by wisdom</div>
+  </div>
+  <div class="nav-item active" data-page="dashboard"><span class="nav-icon">⊞</span> Dashboard</div>
+  <div class="nav-item" data-page="income"><span class="nav-icon">↓</span> Income</div>
+  <div class="nav-item" data-page="expenses"><span class="nav-icon">↑</span> Expenses</div>
+  <div class="nav-item" data-page="savings"><span class="nav-icon">📈</span> Investments</div>
+  <div class="nav-item" data-page="insfund"><span class="nav-icon">❤</span> Insurance Pools</div>
+  <div class="nav-item" data-page="insurance"><span class="nav-icon">🛡</span> Insurance Goals</div>
+  <div class="nav-item" data-page="transactions"><span class="nav-icon">⇄</span> Transactions</div>
+  <div class="nav-item" data-page="buckets"><span class="nav-icon">🪣</span> Goals / Buckets</div>
+  <div class="sidebar-footer">
+    <div class="tagline">Track. Save. Grow.<br>Build financial freedom.</div>
+  </div>
+</nav>
+
+<!-- ── MAIN ─────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div>
+      <div class="page-title" id="pageTitle">Dashboard</div>
+      <div class="page-sub" id="pageSubtitle">Overview of your income, expenses, savings and goals</div>
+    </div>
+    <div class="topbar-right">
+      <select id="monthSel"></select>
+      <select id="yearSel"></select>
+      <button class="btn-reset" onclick="resetAll()" title="Erase all entered data and restore defaults">↺ Reset</button>
+      <button class="btn-add" onclick="openModal()">+ Add Transaction</button>
+    </div>
+  </div>
+
+  <!-- STAT CARDS — always visible -->
+  <div style="padding:16px 24px 0">
+    <div class="stat-row">
+      <div class="stat-card income-card">
+        <div class="stat-label">Total Income</div>
+        <div class="stat-value" id="s-income">₹0</div>
+        <div class="stat-sub">This Month</div>
+        <div class="stat-icon">💰</div>
+      </div>
+      <div class="stat-card expense-card">
+        <div class="stat-label">Total Expenses</div>
+        <div class="stat-value" id="s-expense">₹0</div>
+        <div class="stat-sub">This Month</div>
+        <div class="stat-icon">🔴</div>
+      </div>
+      <div class="stat-card savings-card">
+        <div class="stat-label">Savings &amp; Investments</div>
+        <div class="stat-value" id="s-savings">₹0</div>
+        <div class="stat-sub">This Month</div>
+        <div class="stat-icon">📈</div>
+      </div>
+      <div class="stat-card cash-card">
+        <div class="stat-label">Remaining Cash</div>
+        <div class="stat-value" id="s-cash">₹0</div>
+        <div class="stat-sub">This Month</div>
+        <div class="stat-icon">💵</div>
+      </div>
+      <div class="stat-card rate-card">
+        <div class="stat-label">Savings Rate</div>
+        <div class="stat-value" id="s-rate">0.00%</div>
+        <div class="stat-sub">Of Total Income</div>
+        <div class="stat-icon">%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ══════════════════════════════════════════════════
+         PAGE: DASHBOARD
+    ══════════════════════════════════════════════════ -->
+    <div id="pageDashboard" class="page">
+
+      <!-- ROW 1 -->
+      <div class="grid3">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Income</div>
+          </div>
+          <table class="data-table" id="incomeTable"></table>
+          <div style="margin-top:14px">
+            <div class="section-tag">Income vs Expense – Last 6 Months</div>
+            <div class="chart-area"><div id="trendChart" style="width:100%;height:100%"></div></div>
+            <div style="display:flex;gap:14px;margin-top:4px">
+              <span style="font-size:10px;color:var(--green)">● Income</span>
+              <span style="font-size:10px;color:var(--red)">● Expense</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Expenses (Money Gone)</div>
+          </div>
+          <table class="data-table" id="expenseTable"></table>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Savings &amp; Investments</div>
+          </div>
+          <table class="data-table" id="savingsTable"></table>
+        </div>
+      </div>
+
+      <!-- ROW 2 -->
+      <div class="grid4">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Expense Breakdown</div></div>
+          <div class="pie-wrap">
+            <div id="pieChart"></div>
+            <div class="pie-legend" id="pieLegend"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Savings Growth (6 Mo)</div></div>
+          <div class="bar-chart" id="barChart"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Annual Summary</div>
+            <div class="month-badge">2026</div>
+          </div>
+          <div class="summary-row"><span>Total Income</span><span id="annualIncome">₹0</span></div>
+          <div class="summary-row"><span>Total Expenses</span><span id="annualExpense">₹0</span></div>
+          <div class="summary-row"><span>Savings &amp; Investments</span><span id="annualSaving" style="color:var(--accent2)">₹0</span></div>
+          <div class="summary-row"><span style="font-weight:600">Remaining Cash</span><span class="summary-highlight" id="annualCash">₹0</span></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Insurance Goals</div>
+            <div style="font-size:11px;color:var(--muted)">Auto-linked to pools</div>
+          </div>
+          <div id="insGoals"></div>
+        </div>
+      </div>
+
+      <!-- ROW 3 -->
+      <div class="grid3b">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Savings Buckets</div>
+            <div class="card-action" onclick="openBucketModal()">Update</div>
+          </div>
+          <div id="bucketList"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title" id="txnHeader">Recent Transactions</div>
+            <div class="card-action" onclick="openModal()">+ Add</div>
+          </div>
+          <div style="display:flex;gap:8px;font-size:11px;color:var(--muted);padding-bottom:6px;border-bottom:1px solid var(--border)">
+            <span style="flex:1">Description</span>
+            <span style="width:55px">Type</span>
+            <span style="width:72px;text-align:right">Amount</span>
+          </div>
+          <div id="txnList"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Quick Actions</div></div>
+          <div class="qa-grid">
+            <button class="qa-btn" onclick="openModal('income')">💰 Add Income</button>
+            <button class="qa-btn" onclick="openModal('expense')">↑ Add Expense</button>
+            <button class="qa-btn" onclick="openModal('saving')">📈 Add Saving</button>
+            <button class="qa-btn" onclick="openBucketModal()">🪣 Buckets</button>
+          </div>
+          <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+            <div class="section-tag">Monthly Targets</div>
+            <div class="nw-row" style="margin-top:6px"><span style="color:var(--muted)">Income</span><span id="mtIncome" style="color:var(--green)">₹1,26,558</span></div>
+            <div class="nw-row"><span style="color:var(--muted)">Expenses</span><span id="mtExpense" style="color:var(--red)">₹94,653</span></div>
+            <div class="nw-row"><span style="color:var(--muted)">Savings</span><span id="mtSaving" style="color:var(--accent2)">₹23,812</span></div>
+          </div>
+          <div class="lock-notice">🔒 All data is stored locally in your browser and never leaves your device.</div>
+        </div>
+      </div>
+    </div><!-- /pageDashboard -->
+
+    <!-- ══════════════════════════════════════════════════
+         PAGE: INCOME
+    ══════════════════════════════════════════════════ -->
+    <div id="pageIncome" class="page">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <div class="card-title">Income Summary — Category vs Target</div>
+          <div class="card-action" onclick="openModal('income')">+ Add Income</div>
+        </div>
+        <table class="data-table" id="incPageTable"></table>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">All Income Entries</div>
+          <div class="card-action" onclick="openModal('income')">+ Add</div>
+        </div>
+        <div style="display:flex;gap:8px;font-size:11px;color:var(--muted);padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <span style="width:8px"></span><span style="flex:1">Description / Category</span>
+          <span style="width:55px">Type</span><span style="width:80px;text-align:right">Amount</span>
+        </div>
+        <div id="incPageTxns"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         PAGE: EXPENSES
+    ══════════════════════════════════════════════════ -->
+    <div id="pageExpenses" class="page">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <div class="card-title">Expense Summary — Category vs Target</div>
+          <div class="card-action" onclick="openModal('expense')">+ Add Expense</div>
+        </div>
+        <table class="data-table" id="expPageTable"></table>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">All Expense Entries</div>
+          <div class="card-action" onclick="openModal('expense')">+ Add</div>
+        </div>
+        <div style="display:flex;gap:8px;font-size:11px;color:var(--muted);padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <span style="width:8px"></span><span style="flex:1">Description / Category</span>
+          <span style="width:55px">Type</span><span style="width:80px;text-align:right">Amount</span>
+        </div>
+        <div id="expPageTxns"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         PAGE: INVESTMENTS (was Savings & Invest — insurance
+         pools moved out to their own page below)
+    ══════════════════════════════════════════════════ -->
+    <div id="pageSavings" class="page">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <div class="card-title">Investments — Category vs Target</div>
+          <div class="card-action" onclick="openModal('saving')">+ Add Saving</div>
+        </div>
+        <table class="data-table" id="savPageTable"></table>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">All Investment Entries</div>
+          <div class="card-action" onclick="openModal('saving')">+ Add</div>
+        </div>
+        <div style="display:flex;gap:8px;font-size:11px;color:var(--muted);padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <span style="width:8px"></span><span style="flex:1">Description / Category</span>
+          <span style="width:55px">Type</span><span style="width:80px;text-align:right">Amount</span>
+        </div>
+        <div id="savPageTxns"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         PAGE: INSURANCE POOLS (monthly funding toward annual
+         premiums — separate from Insurance Goals below, which
+         tracks lifetime/long-term progress)
+    ══════════════════════════════════════════════════ -->
+    <div id="pageInsfund" class="page">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <div class="card-title">Insurance Pools — Category vs Target</div>
+          <div class="card-action" onclick="openModal('saving')">+ Add Saving</div>
+        </div>
+        <table class="data-table" id="insfPageTable"></table>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">All Insurance Pool Entries</div>
+          <div class="card-action" onclick="openModal('saving')">+ Add</div>
+        </div>
+        <div style="display:flex;gap:8px;font-size:11px;color:var(--muted);padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <span style="width:8px"></span><span style="flex:1">Description / Category</span>
+          <span style="width:55px">Type</span><span style="width:80px;text-align:right">Amount</span>
+        </div>
+        <div id="insfPageTxns"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         PAGE: INSURANCE GOALS
+    ══════════════════════════════════════════════════ -->
+    <div id="pageInsurance" class="page">
+      <div id="insPageGoals"></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         PAGE: ALL TRANSACTIONS
+    ══════════════════════════════════════════════════ -->
+    <div id="pageTransactions" class="page">
+      <div style="margin-bottom:12px">
+        <div style="font-size:14px;font-weight:600" id="txnPageTitle"></div>
+      </div>
+      <div class="txn-page-stats">
+        <div class="subpage-stat">
+          <div class="lbl">Income</div>
+          <div class="val" id="txnPageIncome" style="color:var(--green)">₹0</div>
+        </div>
+        <div class="subpage-stat">
+          <div class="lbl">Expenses</div>
+          <div class="val" id="txnPageExpense" style="color:var(--red)">₹0</div>
+        </div>
+        <div class="subpage-stat">
+          <div class="lbl">Savings</div>
+          <div class="val" id="txnPageSaving" style="color:var(--accent2)">₹0</div>
+        </div>
+        <div class="subpage-stat">
+          <div class="lbl">Remaining Cash</div>
+          <div class="val" id="txnPageCash" style="color:var(--gold)">₹0</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">All Transactions</div>
+          <div class="card-action" onclick="openModal()">+ Add</div>
+        </div>
+        <div style="display:flex;gap:8px;font-size:11px;color:var(--muted);padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <span style="width:8px"></span><span style="flex:1">Description / Category / Date</span>
+          <span style="width:60px">Type</span><span style="width:80px;text-align:right">Amount</span>
+        </div>
+        <div id="txnPageList"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         PAGE: BUCKETS
+    ══════════════════════════════════════════════════ -->
+    <div id="pageBuckets" class="page">
+      <div id="bucketsPageList"></div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ════════ MODALS ═════════════════════════════════════════ -->
+
+<!-- ADD TRANSACTION -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3>Add Transaction</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Type</label>
+        <select id="txnType">
+          <option value="income">Income</option>
+          <option value="expense">Expense</option>
+          <option value="saving">Saving / Investment</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="txnCat"></select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <input type="text" id="txnDesc" placeholder="e.g. June salary, Groceries...">
+    </div>
+    <div class="form-group" id="txnParkedGroup" style="display:none">
+      <label>Invested In (MF / RD) — where this is parked till year-end</label>
+      <input type="text" id="txnParked" maxlength="40" placeholder="e.g. HDFC RD 7.1% / Parag Parikh Flexi Cap">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Amount (₹)</label>
+        <input type="number" id="txnAmount" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="txnDate">
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveTransaction()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- BUCKET MODAL -->
+<div class="modal-bg" id="bucketModalBg">
+  <div class="modal" style="width:340px">
+    <h3>Update Savings Bucket</h3>
+    <div class="form-group">
+      <label>Bucket</label>
+      <select id="bucketKey"></select>
+    </div>
+    <div class="form-group">
+      <label>Total Saved so far (₹)</label>
+      <input type="number" id="bucketAmount" min="0" placeholder="0">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeBucketModal()">Cancel</button>
+      <button class="btn-save" onclick="saveBucketAmount()">Save</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- TOAST -->
+<div class="toast" id="toastEl"></div>
+
+<!-- BOTTOM NAV (mobile only) -->
+<nav class="bottom-nav" id="bottomNav">
+  <div class="bottom-nav-item active" data-page="dashboard">
+    <span class="bn-icon">⊞</span><span>Home</span>
+  </div>
+  <div class="bottom-nav-item" data-page="income">
+    <span class="bn-icon">↓</span><span>Income</span>
+  </div>
+  <div class="bottom-nav-item" data-page="expenses">
+    <span class="bn-icon">↑</span><span>Expenses</span>
+  </div>
+  <div class="bottom-nav-item" data-page="savings">
+    <span class="bn-icon">📈</span><span>Invest</span>
+  </div>
+  <div class="bottom-nav-item" data-page="transactions">
+    <span class="bn-icon">⇄</span><span>Txns</span>
+  </div>
+  <div class="bottom-nav-item" data-page="buckets">
+    <span class="bn-icon">🪣</span><span>Buckets</span>
+  </div>
+</nav>
+
+<script src="arthena.js"></script>
+</body>
+</html>
