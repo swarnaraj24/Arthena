@@ -395,10 +395,9 @@
         <div class="card">
           <div class="nw-section-title">Liabilities</div>
 
-          <div class="nw-field">
-            <span class="nw-field-label">Personal Loan <span class="nw-loan-auto">Auto</span></span>
-            <span class="nw-field-value" id="nwv-loan" style="cursor:default;">₹0</span>
-          </div>
+          <!-- Dynamic loans list -->
+          <div id="nwLoansList"></div>
+
           <div class="nw-field">
             <span class="nw-field-label">Credit Card Outstanding</span>
             <span class="nw-field-value" onclick="editNwField('cc')" id="nwv-cc">₹0 <span class="edit-hint">✎</span></span>
@@ -409,13 +408,8 @@
             <span class="nw-total-liabilities" id="nwTotalLiabilities">₹0</span>
           </div>
 
-          <!-- Loan schedule -->
-          <div style="margin-top:16px;padding:12px;background:rgba(212,175,55,0.06);border:1px solid var(--border);border-radius:8px;">
-            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;">Loan Schedule</div>
-            <div class="nw-field" style="padding:5px 0;"><span style="font-size:12px;color:var(--muted)">Original Principal</span><span style="font-size:12px;">₹4,00,000</span></div>
-            <div class="nw-field" style="padding:5px 0;"><span style="font-size:12px;color:var(--muted)">Monthly EMI</span><span style="font-size:12px;">₹13,271</span></div>
-            <div class="nw-field" style="padding:5px 0;"><span style="font-size:12px;color:var(--muted)">Rate</span><span style="font-size:12px;">11.64% p.a.</span></div>
-            <div class="nw-field" style="padding:5px 0;border:none;"><span style="font-size:12px;color:var(--muted)">EMIs Remaining</span><span style="font-size:12px;" id="nwLoanEmiLeft">—</span></div>
+          <div style="margin-top:12px;">
+            <button class="nw-add-btn" style="width:100%;" onclick="openLoanModal()">+ Add Loan</button>
           </div>
         </div>
 
@@ -515,6 +509,58 @@
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeNwRowModal()">Cancel</button>
       <button class="btn-save" onclick="saveNwRow()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOAN MODAL -->
+<div class="modal-bg" id="loanModalBg">
+  <div class="modal" style="width:380px">
+    <h3 id="loanModalTitle">Add Loan</h3>
+    <div class="form-group">
+      <label>Loan Name</label>
+      <input type="text" id="loanName" placeholder="e.g. Home Loan, Personal Loan">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Principal (₹)</label>
+        <input type="number" id="loanPrincipal" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label>Rate (% p.a.)</label>
+        <input type="number" id="loanRate" placeholder="0.00" step="0.01" min="0">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>EMI (₹/month)</label>
+        <input type="number" id="loanEmi" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label>Total EMIs</label>
+        <input type="number" id="loanTotalEmis" placeholder="e.g. 36" min="1">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Start Month</label>
+        <select id="loanStartMonth">
+          <option value="0">Jan</option><option value="1">Feb</option>
+          <option value="2">Mar</option><option value="3">Apr</option>
+          <option value="4">May</option><option value="5" selected>Jun</option>
+          <option value="6">Jul</option><option value="7">Aug</option>
+          <option value="8">Sep</option><option value="9">Oct</option>
+          <option value="10">Nov</option><option value="11">Dec</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Start Year</label>
+        <input type="number" id="loanStartYear" placeholder="2026" value="2026" min="2020">
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeLoanModal()">Cancel</button>
+      <button class="btn-save" onclick="saveLoan()">Save</button>
     </div>
   </div>
 </div>
