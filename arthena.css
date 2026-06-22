@@ -67,8 +67,7 @@ body {
   width: 72px; height: 72px; object-fit: contain;
   display: block;
   border-radius: 12px;
-  background: #0a1628;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  mix-blend-mode: multiply;
 }
 .logo-tag {
   font-size: 10px; color: var(--muted); text-align: center; line-height: 1.5;
