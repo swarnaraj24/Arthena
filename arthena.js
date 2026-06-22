@@ -1094,7 +1094,25 @@ function nwKey(year, month) {
 function ensureNwMonth(year, month) {
   const k = nwKey(year, month);
   if (!state.networth[k]) {
-    state.networth[k] = { equity:0, epf:0, bank:0, cash:0, cc:0, gold:[], fd:[], rd:[] };
+    // Try to carry forward from previous month
+    let prev = null;
+    let prevYear = year, prevMonth = month - 1;
+    if (prevMonth < 0) { prevMonth = 11; prevYear -= 1; }
+    const prevKey = nwKey(prevYear, prevMonth);
+    if (state.networth[prevKey]) {
+      const p = state.networth[prevKey];
+      prev = {
+        equity: p.equity || 0,
+        epf:    p.epf    || 0,
+        bank:   p.bank   || 0,
+        cash:   p.cash   || 0,
+        cc:     p.cc     || 0,
+        gold:   JSON.parse(JSON.stringify(p.gold || [])),
+        fd:     JSON.parse(JSON.stringify(p.fd   || [])),
+        rd:     JSON.parse(JSON.stringify(p.rd   || [])),
+      };
+    }
+    state.networth[k] = prev || { equity:0, epf:0, bank:0, cash:0, cc:0, gold:[], fd:[], rd:[] };
   }
   const d = state.networth[k];
   if (!Array.isArray(d.gold)) d.gold = [];
