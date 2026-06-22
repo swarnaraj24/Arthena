@@ -60,17 +60,20 @@ body {
 }
 .logo {
   padding: 12px 18px 16px; border-bottom: 1px solid var(--border);
-  margin-bottom: 10px; display: flex; flex-direction: column;
-  align-items: center; gap: 8px; overflow: visible;
+  margin-bottom: 4px; display: flex; flex-direction: column;
+  align-items: center; gap: 0; overflow: hidden;
 }
 .logo img {
-  width: 72px; height: 72px; object-fit: contain;
+  width: 140px; object-fit: contain;
   display: block;
-  border-radius: 12px;
-  mix-blend-mode: multiply;
 }
-.logo-tag {
-  font-size: 10px; color: var(--muted); text-align: center; line-height: 1.5;
+.nav-section-header {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+  padding: 12px 18px 4px;
+  font-weight: 700;
 }
 
 .nav-item {
@@ -524,7 +527,56 @@ select:focus { border-color: var(--accent); }
   .page-title { font-size: 15px; }
 }
 
-/* ── THEME TOGGLE ────────────────────────────────────────── */
+.nw-subsection {
+  margin: 12px 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.nw-subsection-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
+}
+.nw-subsection-header span:first-child { flex: 1; }
+.nw-add-btn {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.nw-add-btn:hover { background: var(--accent); color: var(--bg); }
+.nw-row-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  gap: 8px;
+}
+.nw-row-item:last-child { border-bottom: none; }
+.nw-row-label { flex: 1; color: var(--text); }
+.nw-row-sub { font-size: 10px; color: var(--muted); }
+.nw-row-val { font-weight: 600; color: var(--text); min-width: 80px; text-align: right; }
+.nw-row-del {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; font-size: 14px; padding: 0 4px; line-height: 1;
+}
+.nw-row-del:hover { color: var(--red); }
+
+/* Hide monthly stat cards on net worth page */
+body.page-networth #statCardsRow { display: none; }
+body.page-networth .topbar select { display: none; }
 .btn-theme {
   background: transparent;
   border: 1px solid var(--border);

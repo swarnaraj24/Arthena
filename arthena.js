@@ -144,7 +144,9 @@ let state = {
   currentMonth: 5,
   currentPage:  'dashboard',
   theme:        'dark',
-  networth:     {},   // key: 'YYYY-MM' → { equity, epf, bank, cash, fd, cc }
+  networth:     {},   // key: 'YYYY-MM' → { equity, epf, bank, cash, cc, gold:[], fd:[], rd:[] }
+  nwViewYear:   2026,
+  nwViewMonth:  5,    // June 2026
 };
 
 /* ── STORAGE ─────────────────────────────────────────────────── */
@@ -164,6 +166,8 @@ function loadState() {
       state.currentPage  = parsed.currentPage  || 'dashboard';
       state.theme        = parsed.theme        || 'dark';
       state.networth     = parsed.networth     || {};
+      state.nwViewYear   = parsed.nwViewYear   || 2026;
+      state.nwViewMonth  = parsed.nwViewMonth  || 5;
 
       // ── ONE-TIME MIGRATION: old flat LIC target (₹874/mo) → new
       // quarterly auto-split (₹788/mo). Only overwrite if it's still
@@ -316,7 +320,7 @@ function rebuildMonths(y, selectM) {
 /* ── NAV ─────────────────────────────────────────────────────── */
 const PAGE_MAP    = { dashboard:'pageDashboard', income:'pageIncome', expenses:'pageExpenses', savings:'pageSavings', insfund:'pageInsfund', insurance:'pageInsurance', buckets:'pageBuckets', networth:'pageNetworth' };
 const PAGE_TITLES = { dashboard:'Dashboard', income:'Income', expenses:'Expenses', savings:'Investments', insfund:'Insurance Pools', insurance:'Insurance Goals', buckets:'Goals / Buckets', networth:'Net Worth' };
-const PAGE_SUBS   = { dashboard:'Overview of your income, expenses, savings and goals', income:'Click Actual to edit · Click Target to edit · Checkbox = received', expenses:'Click Actual to edit · Click Target to edit · Checkbox = paid', savings:'Click Actual to edit · Click Target to edit · Checkbox = done & adds Target to Actual', insfund:'Annual premium pools — check off once funded for the month, edit targets anytime for inflation', insurance:'Track your insurance saving goals', buckets:'Track your savings buckets and goals', networth:'Your total assets minus liabilities · Loan outstanding is auto-calculated' };
+const PAGE_SUBS   = { dashboard:'Overview of your income, expenses, savings and goals', income:'Click Actual to edit · Click Target to edit · Checkbox = received', expenses:'Click Actual to edit · Click Target to edit · Checkbox = paid', savings:'Click Actual to edit · Click Target to edit · Checkbox = done & adds Target to Actual', insfund:'Annual premium pools — check off once funded for the month, edit targets anytime for inflation', insurance:'Track your insurance saving goals', buckets:'Track your savings buckets and goals', networth:'Your total assets minus liabilities · Independent of monthly view · Loan auto-calculated' };
 
 function navigate(page) {
   state.currentPage = page;
@@ -333,6 +337,12 @@ function navigate(page) {
   if (bnav) bnav.classList.add('active');
   document.getElementById('pageTitle').textContent    = PAGE_TITLES[page] || '';
   document.getElementById('pageSubtitle').textContent = PAGE_SUBS[page]   || '';
+  // Toggle body class for networth page (hides monthly stat cards + month/year selectors)
+  if (page === 'networth') {
+    document.body.classList.add('page-networth');
+  } else {
+    document.body.classList.remove('page-networth');
+  }
   renderAll();
 }
 
@@ -1005,6 +1015,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   bindBgClose('modalBg',        closeModal);
   bindBgClose('bucketModalBg',  closeBucketModal);
+  bindBgClose('nwRowModalBg',   closeNwRowModal);
   document.getElementById('txnType').addEventListener('change', updateCatDropdown);
   document.getElementById('txnCat').addEventListener('change', toggleParkedField);
   applyTheme(state.theme);
@@ -1032,34 +1043,31 @@ function toggleTheme() {
   saveState();
 }
 
+
 /* ════════════════════════════════════════════════════════════
    NET WORTH
    Loan: ₹4,00,000 @ 11.64% p.a., EMI ₹13,271, started June 2026
-   First EMI paid June 2026 → 35 months remaining from July 2026
+   Savings pulled from Investments page actuals: June 2026 onwards
+   Independent of monthly page selector — own date picker
 ════════════════════════════════════════════════════════════ */
 
-const NW_LOAN_PRINCIPAL  = 400000;
-const NW_LOAN_RATE_PA    = 11.64;
-const NW_LOAN_EMI        = 13271;
-const NW_LOAN_START_YEAR = 2026;
-const NW_LOAN_START_MONTH = 5; // June = index 5 (0-based), first EMI paid
+const NW_LOAN_PRINCIPAL   = 400000;
+const NW_LOAN_RATE_PA     = 11.64;
+const NW_LOAN_EMI         = 13271;
+const NW_LOAN_START_YEAR  = 2026;
+const NW_LOAN_START_MONTH = 5; // June 2026 = index 5
+
+let nwGoldRatePerGram = 0; // fetched live, fallback to 0
 
 function calcLoanOutstanding(year, month) {
-  // Build amortization from June 2026 (first EMI paid)
-  // Outstanding AFTER the EMI for the given month is paid
-  const monthRate = NW_LOAN_RATE_PA / 100 / 12;
-  let balance = NW_LOAN_PRINCIPAL;
-
-  // Months elapsed from June 2026 (inclusive) to current month
+  const monthRate  = NW_LOAN_RATE_PA / 100 / 12;
+  let balance      = NW_LOAN_PRINCIPAL;
   const startTotal = NW_LOAN_START_YEAR * 12 + NW_LOAN_START_MONTH;
   const curTotal   = year * 12 + month;
-  const emisPaid   = curTotal - startTotal + 1; // +1 because June 2026 EMI is paid
-
-  if (emisPaid <= 0) return NW_LOAN_PRINCIPAL; // before first EMI
-  const totalEmi = Math.round(NW_LOAN_PRINCIPAL / NW_LOAN_EMI * 1.5); // safety cap
-
-  for (let i = 0; i < Math.min(emisPaid, totalEmi); i++) {
-    const interest = balance * monthRate;
+  const emisPaid   = curTotal - startTotal + 1;
+  if (emisPaid <= 0) return NW_LOAN_PRINCIPAL;
+  for (let i = 0; i < Math.min(emisPaid, 36); i++) {
+    const interest  = balance * monthRate;
     const principal = NW_LOAN_EMI - interest;
     balance -= principal;
     if (balance <= 0) { balance = 0; break; }
@@ -1074,111 +1082,325 @@ function emisRemaining(year, month) {
   return Math.max(0, 36 - paid);
 }
 
-function nwKey(year, month) { return `${year}-${String(month).padStart(2,'0')}`; }
+function nwKey(year, month) {
+  return `${year}-${String(month).padStart(2,'0')}`;
+}
 
 function ensureNwMonth(year, month) {
   const k = nwKey(year, month);
   if (!state.networth[k]) {
-    state.networth[k] = { equity:0, epf:0, bank:0, cash:0, fd:0, cc:0 };
+    state.networth[k] = { equity:0, epf:0, bank:0, cash:0, cc:0, gold:[], fd:[], rd:[] };
   }
-  return state.networth[k];
+  // migrate old flat structure if needed
+  const d = state.networth[k];
+  if (!Array.isArray(d.gold)) d.gold = [];
+  if (!Array.isArray(d.fd))   d.fd   = [];
+  if (!Array.isArray(d.rd))   d.rd   = [];
+  return d;
+}
+
+// Sum savings/investment actuals from June 2026 onwards
+function calcSavingsFromInvestments() {
+  const SAVING_TYPES = ['saving']; // transaction type
+  const startTotal = NW_LOAN_START_YEAR * 12 + NW_LOAN_START_MONTH; // June 2026
+  let total = 0;
+  Object.keys(state.months).forEach(key => {
+    // key format: 'YYYY-M' (e.g. '2026-5')
+    const parts = key.split('-');
+    if (parts.length < 2) return;
+    const yr = parseInt(parts[0]);
+    const mo = parseInt(parts[1]);
+    const keyTotal = yr * 12 + mo;
+    if (keyTotal < startTotal) return; // before June 2026
+    const monthData = state.months[key];
+    if (!monthData || !Array.isArray(monthData.transactions)) return;
+    monthData.transactions.forEach(txn => {
+      if (txn.type === 'saving') {
+        total += (txn.actual || txn.amount || 0);
+      }
+    });
+    // Also count actuals set directly on categories
+    if (monthData.actuals) {
+      Object.keys(monthData.actuals).forEach(catKey => {
+        // Only saving categories (sip, ppf, pli, hlth, term, licterm, mfsip, etc.)
+        // We include all saving-type category actuals
+        const cat = CAT_META[catKey];
+        if (cat && cat.type === 'saving') {
+          total += (monthData.actuals[catKey] || 0);
+        }
+      });
+    }
+  });
+  return total;
+}
+
+async function fetchGoldRate() {
+  try {
+    // Use a free metals API — goldapi.io free tier or fallback
+    const res = await fetch('https://api.metals.live/v1/spot/gold', { signal: AbortSignal.timeout(5000) });
+    const data = await res.json();
+    // Returns USD/troy oz — convert to INR/gram
+    // 1 troy oz = 31.1035 grams; use approximate USD/INR = 84
+    if (data && data.price) {
+      const usdPerOz  = data.price;
+      const inrPerOz  = usdPerOz * 84;
+      nwGoldRatePerGram = Math.round(inrPerOz / 31.1035);
+    }
+  } catch {
+    // Fallback: try another free endpoint
+    try {
+      const res2 = await fetch('https://api.goldpricez.com/gold/country/in', { signal: AbortSignal.timeout(5000) });
+      const data2 = await res2.json();
+      if (data2 && data2.price_gram_24k) {
+        nwGoldRatePerGram = Math.round(parseFloat(data2.price_gram_24k));
+      }
+    } catch {
+      nwGoldRatePerGram = 0;
+    }
+  }
+  // Update display if page is open
+  const rateEl = document.getElementById('nwGoldRate');
+  if (rateEl) {
+    rateEl.textContent = nwGoldRatePerGram > 0
+      ? `24K: ${fmtINR(nwGoldRatePerGram)}/g`
+      : 'Rate unavailable — enter ₹ manually';
+  }
+  renderNetworthPage();
+}
+
+function initNwDatePicker() {
+  const monthSel = document.getElementById('nwMonthSel');
+  const yearSel  = document.getElementById('nwYearSel');
+  if (!monthSel || !yearSel) return;
+
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  monthSel.innerHTML = MONTHS.map((m,i) =>
+    `<option value="${i}" ${i===state.nwViewMonth?'selected':''}>${m}</option>`
+  ).join('');
+  yearSel.innerHTML = '';
+  for (let y = 2026; y <= 2035; y++) {
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = y;
+    if (y === state.nwViewYear) opt.selected = true;
+    yearSel.appendChild(opt);
+  }
+
+  monthSel.onchange = () => {
+    state.nwViewMonth = parseInt(monthSel.value);
+    saveState(); renderNetworthPage();
+  };
+  yearSel.onchange = () => {
+    state.nwViewYear = parseInt(yearSel.value);
+    saveState(); renderNetworthPage();
+  };
 }
 
 function renderNetworthPage() {
-  const y = state.currentYear;
-  const m = state.currentMonth;
+  const y = state.nwViewYear;
+  const m = state.nwViewMonth;
   const d = ensureNwMonth(y, m);
+
+  initNwDatePicker();
 
   const loanOutstanding = calcLoanOutstanding(y, m);
   const emiLeft         = emisRemaining(y, m);
+  const savingsAuto     = calcSavingsFromInvestments();
 
-  const totalAssets      = d.equity + d.epf + d.bank + d.cash + d.fd;
+  // Gold total
+  const goldTotal = d.gold.reduce((sum, g) => {
+    if (nwGoldRatePerGram > 0 && g.grams) return sum + g.grams * nwGoldRatePerGram;
+    return sum + (g.amount || 0);
+  }, 0);
+
+  // FD / RD totals
+  const fdTotal = d.fd.reduce((sum, r) => sum + (r.amount || 0), 0);
+  const rdTotal = d.rd.reduce((sum, r) => sum + (r.amount || 0), 0);
+
+  const totalAssets      = d.equity + d.epf + d.bank + d.cash + savingsAuto + goldTotal + fdTotal + rdTotal;
   const totalLiabilities = loanOutstanding + d.cc;
   const netWorth         = totalAssets - totalLiabilities;
 
   // Hero
   document.getElementById('nwHeroValue').textContent = fmtINR(netWorth);
+  document.getElementById('nwHeroValue').style.color = netWorth >= 0 ? 'var(--accent)' : 'var(--red)';
   const sub = document.getElementById('nwHeroSub');
   sub.textContent = `${fmtINR(totalAssets)} assets − ${fmtINR(totalLiabilities)} liabilities`;
-  sub.className = 'nw-hero-sub ' + (netWorth >= 0 ? 'nw-hero-positive' : 'nw-hero-negative');
-  document.getElementById('nwHeroValue').style.color = netWorth >= 0 ? 'var(--accent)' : 'var(--red)';
 
-  // Fields
-  const fields = ['equity','epf','bank','cash','fd','cc'];
-  fields.forEach(f => {
-    const el = document.getElementById(`nwv-${f}`);
-    if (!el) return;
-    el.innerHTML = `${fmtINR(d[f])} <span class="edit-hint">✎</span>`;
+  // Simple fields
+  const simple = { equity: d.equity, epf: d.epf, bank: d.bank, cash: d.cash, cc: d.cc };
+  Object.entries(simple).forEach(([k,v]) => {
+    const el = document.getElementById(`nwv-${k}`);
+    if (el) el.innerHTML = `${fmtINR(v)} <span class="edit-hint">✎</span>`;
   });
 
-  // Loan (auto)
-  document.getElementById('nwv-loan').textContent = fmtINR(loanOutstanding);
+  // Savings auto
+  const savEl = document.getElementById('nwv-savings');
+  if (savEl) savEl.textContent = fmtINR(savingsAuto);
+
+  // Gold rows
+  const goldRateEl = document.getElementById('nwGoldRate');
+  if (goldRateEl) {
+    goldRateEl.textContent = nwGoldRatePerGram > 0
+      ? `24K: ${fmtINR(nwGoldRatePerGram)}/g`
+      : 'Rate unavailable';
+  }
+  renderNwRows('nwGoldRows', d.gold, 'gold');
+  const gtEl = document.getElementById('nwGoldTotal');
+  if (gtEl) gtEl.textContent = fmtINR(goldTotal);
+
+  // FD rows
+  renderNwRows('nwFdRows', d.fd, 'fd');
+  const fdEl = document.getElementById('nwFdTotal');
+  if (fdEl) fdEl.textContent = fmtINR(fdTotal);
+
+  // RD rows
+  renderNwRows('nwRdRows', d.rd, 'rd');
+  const rdEl = document.getElementById('nwRdTotal');
+  if (rdEl) rdEl.textContent = fmtINR(rdTotal);
+
+  // Loan
+  document.getElementById('nwv-loan').textContent    = fmtINR(loanOutstanding);
   document.getElementById('nwLoanEmiLeft').textContent = emiLeft > 0 ? `${emiLeft} months` : 'Fully paid';
 
   // Totals
   document.getElementById('nwTotalAssets').textContent      = fmtINR(totalAssets);
   document.getElementById('nwTotalLiabilities').textContent = fmtINR(totalLiabilities);
 
-  // History
   renderNwHistory();
+}
+
+function renderNwRows(containerId, rows, type) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!rows || rows.length === 0) {
+    el.innerHTML = `<div style="font-size:11px;color:var(--muted);padding:4px 0;">No entries yet.</div>`;
+    return;
+  }
+  el.innerHTML = rows.map((r, i) => {
+    let valText = '';
+    if (type === 'gold') {
+      const grams = r.grams || 0;
+      const val   = nwGoldRatePerGram > 0 ? fmtINR(grams * nwGoldRatePerGram) : (r.amount ? fmtINR(r.amount) : '—');
+      valText = `${grams}g = ${val}`;
+    } else {
+      valText = fmtINR(r.amount || 0);
+    }
+    return `
+      <div class="nw-row-item">
+        <span class="nw-row-label">${r.name || '—'}</span>
+        <span class="nw-row-val">${valText}</span>
+        <button class="nw-row-del" onclick="deleteNwRow('${type}',${i})" title="Remove">✕</button>
+      </div>`;
+  }).join('');
 }
 
 function renderNwHistory() {
   const el = document.getElementById('nwHistory');
   if (!el) return;
-
   const entries = Object.keys(state.networth)
     .sort((a,b) => b.localeCompare(a))
     .slice(0, 12)
     .map(k => {
-      const d = state.networth[k];
+      const d   = state.networth[k];
       const [yr, mo] = k.split('-').map(Number);
       const loan = calcLoanOutstanding(yr, mo);
-      const assets = d.equity + d.epf + d.bank + d.cash + d.fd;
-      const liab   = loan + d.cc;
-      const nw     = assets - liab;
-      return { k, yr, mo, nw };
-    })
-    .filter(e => e.nw !== 0 || Object.values(state.networth[e.k]).some(v => v > 0));
+      const goldT = (d.gold||[]).reduce((s,g) => s + (nwGoldRatePerGram>0&&g.grams ? g.grams*nwGoldRatePerGram : g.amount||0),0);
+      const fdT   = (d.fd||[]).reduce((s,r)=>s+(r.amount||0),0);
+      const rdT   = (d.rd||[]).reduce((s,r)=>s+(r.amount||0),0);
+      const sav   = calcSavingsFromInvestments();
+      const assets = (d.equity||0)+(d.epf||0)+(d.bank||0)+(d.cash||0)+sav+goldT+fdT+rdT;
+      const liab   = loan + (d.cc||0);
+      return { k, yr, mo, nw: assets - liab };
+    });
 
   if (!entries.length) {
-    el.innerHTML = `<div class="empty-state">No data yet. Enter values above to track net worth over time.</div>`;
+    el.innerHTML = `<div class="empty-state">No snapshots yet. Enter values above to start tracking.</div>`;
     return;
   }
-
   el.innerHTML = entries.map(e => `
     <div class="nw-history-row">
       <span class="nw-history-month">${monthLabel(e.yr, e.mo)}</span>
-      <span class="nw-history-val" style="color:${e.nw >= 0 ? 'var(--green)' : 'var(--red)'}">
-        ${fmtINR(e.nw)}
-      </span>
-    </div>
-  `).join('');
+      <span class="nw-history-val" style="color:${e.nw>=0?'var(--green)':'var(--red)'}">${fmtINR(e.nw)}</span>
+    </div>`).join('');
 }
 
+// ── NW ROW MODAL ─────────────────────────────────────────
+let _nwRowType = null;
+
+function addNwRow(type) {
+  _nwRowType = type;
+  const title  = type==='gold'?'Add Gold Entry':type==='fd'?'Add Fixed Deposit':'Add Recurring Deposit';
+  document.getElementById('nwRowModalTitle').textContent = title;
+  document.getElementById('nwRowName').value   = '';
+  document.getElementById('nwRowGrams').value  = '';
+  document.getElementById('nwRowAmount').value = '';
+  document.getElementById('nwRowGramsGroup').style.display  = type==='gold' ? 'block' : 'none';
+  document.getElementById('nwRowAmountGroup').style.display = type==='gold' && nwGoldRatePerGram>0 ? 'none' : 'block';
+  document.getElementById('nwRowAmountLabel').textContent   = type==='gold' ? 'Fallback Value (₹)' : 'Amount (₹)';
+  document.getElementById('nwRowModalBg').style.display     = 'flex';
+}
+
+function closeNwRowModal() {
+  document.getElementById('nwRowModalBg').style.display = 'none';
+  _nwRowType = null;
+}
+
+function saveNwRow() {
+  const y = state.nwViewYear;
+  const m = state.nwViewMonth;
+  const d = ensureNwMonth(y, m);
+  const name = document.getElementById('nwRowName').value.trim();
+
+  if (_nwRowType === 'gold') {
+    const grams  = parseFloat(document.getElementById('nwRowGrams').value) || 0;
+    const amount = parseFloat(document.getElementById('nwRowAmount').value) || 0;
+    if (!grams && !amount) { toast('Enter grams or amount', 'error'); return; }
+    d.gold.push({ name: name||'Gold', grams, amount });
+  } else {
+    const amount = parseFloat(document.getElementById('nwRowAmount').value) || 0;
+    if (!amount) { toast('Enter amount', 'error'); return; }
+    d[_nwRowType].push({ name: name||((_nwRowType==='fd')?'FD':'RD'), amount });
+  }
+
+  saveState();
+  closeNwRowModal();
+  renderNetworthPage();
+  toast('Entry saved', 'success');
+}
+
+function deleteNwRow(type, index) {
+  const y = state.nwViewYear;
+  const m = state.nwViewMonth;
+  const d = ensureNwMonth(y, m);
+  d[type].splice(index, 1);
+  saveState();
+  renderNetworthPage();
+  toast('Entry removed', 'success');
+}
+
+// ── SIMPLE FIELD EDIT ──────────────────────────────────────
 const NW_FIELD_LABELS = {
   equity: 'Equity Portfolio (₹)',
   epf:    'EPF Balance (₹)',
   bank:   'Bank Balance (₹)',
   cash:   'Cash in Hand (₹)',
-  fd:     'FD / RD / Gold (₹)',
   cc:     'Credit Card Outstanding (₹)',
 };
 
 function editNwField(field) {
-  const y = state.currentYear;
-  const m = state.currentMonth;
+  const y = state.nwViewYear;
+  const m = state.nwViewMonth;
   const d = ensureNwMonth(y, m);
   const current = d[field] || 0;
-  const label   = NW_FIELD_LABELS[field] || field;
-
-  const val = prompt(`${label}\nCurrent: ${fmtINR(current)}\n\nEnter new amount:`, current);
+  const val = prompt(`${NW_FIELD_LABELS[field]}\nCurrent: ${fmtINR(current)}\n\nEnter new amount:`, current);
   if (val === null) return;
   const parsed = parseFloat(val.replace(/,/g,''));
   if (isNaN(parsed) || parsed < 0) { toast('Invalid amount', 'error'); return; }
-
   d[field] = parsed;
   saveState();
   renderNetworthPage();
-  toast('Net worth updated', 'success');
+  toast('Updated', 'success');
 }
+
+// Fetch gold rate on page load
+fetchGoldRate();

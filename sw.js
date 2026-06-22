@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arthena-v3';
+const CACHE_NAME = 'arthena-v4';
 const ASSETS = [
   '/',
   '/index.html',

@@ -27,9 +27,10 @@
 <!-- ── SIDEBAR ──────────────────────────────────────────────── -->
 <nav class="sidebar">
   <div class="logo">
-    <img src="icon-192.png" alt="Arthena">
-    <div class="logo-tag">Wealth guided by wisdom</div>
+    <img src="logo.png" alt="Arthena">
   </div>
+
+  <div class="nav-section-header">Monthly</div>
   <div class="nav-item active" data-page="dashboard"><span class="nav-icon">⊞</span> Dashboard</div>
   <div class="nav-item" data-page="income"><span class="nav-icon">↓</span> Income</div>
   <div class="nav-item" data-page="expenses"><span class="nav-icon">↑</span> Expenses</div>
@@ -37,7 +38,10 @@
   <div class="nav-item" data-page="insfund"><span class="nav-icon">❤</span> Insurance Pools</div>
   <div class="nav-item" data-page="insurance"><span class="nav-icon">🛡</span> Insurance Goals</div>
   <div class="nav-item" data-page="buckets"><span class="nav-icon">🪣</span> Goals / Buckets</div>
+
+  <div class="nav-section-header" style="margin-top:8px;">Wealth</div>
   <div class="nav-item" data-page="networth"><span class="nav-icon">👑</span> Net Worth</div>
+
   <div class="sidebar-footer">
     <div class="tagline">Track. Save. Grow.<br>Build financial freedom.</div>
   </div>
@@ -61,8 +65,8 @@
     </div>
   </div>
 
-  <!-- STAT CARDS — always visible -->
-  <div style="padding:16px 24px 0">
+  <!-- STAT CARDS — visible on monthly pages only -->
+  <div style="padding:16px 24px 0" id="statCardsRow">
     <div class="stat-row">
       <div class="stat-card income-card">
         <div class="stat-label">Total Income</div>
@@ -99,17 +103,11 @@
 
   <div class="content">
 
-    <!-- ══════════════════════════════════════════════════
-         PAGE: DASHBOARD
-    ══════════════════════════════════════════════════ -->
+    <!-- PAGE: DASHBOARD -->
     <div id="pageDashboard" class="page">
-
-      <!-- ROW 1 -->
       <div class="grid3">
         <div class="card">
-          <div class="card-header">
-            <div class="card-title">Income</div>
-          </div>
+          <div class="card-header"><div class="card-title">Income</div></div>
           <table class="data-table" id="incomeTable"></table>
           <div style="margin-top:14px">
             <div class="section-tag">Income vs Expense – Last 6 Months</div>
@@ -121,20 +119,14 @@
           </div>
         </div>
         <div class="card">
-          <div class="card-header">
-            <div class="card-title">Expenses (Money Gone)</div>
-          </div>
+          <div class="card-header"><div class="card-title">Expenses (Money Gone)</div></div>
           <table class="data-table" id="expenseTable"></table>
         </div>
         <div class="card">
-          <div class="card-header">
-            <div class="card-title">Savings &amp; Investments</div>
-          </div>
+          <div class="card-header"><div class="card-title">Savings &amp; Investments</div></div>
           <table class="data-table" id="savingsTable"></table>
         </div>
       </div>
-
-      <!-- ROW 2 -->
       <div class="grid4">
         <div class="card">
           <div class="card-header"><div class="card-title">Expense Breakdown</div></div>
@@ -165,8 +157,6 @@
           <div id="insGoals"></div>
         </div>
       </div>
-
-      <!-- ROW 3 -->
       <div class="grid3b">
         <div class="card">
           <div class="card-header">
@@ -206,9 +196,7 @@
       </div>
     </div><!-- /pageDashboard -->
 
-    <!-- ══════════════════════════════════════════════════
-         PAGE: INCOME
-    ══════════════════════════════════════════════════ -->
+    <!-- PAGE: INCOME -->
     <div id="pageIncome" class="page">
       <div class="card" style="margin-bottom:16px">
         <div class="card-header">
@@ -230,9 +218,7 @@
       </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════
-         PAGE: EXPENSES
-    ══════════════════════════════════════════════════ -->
+    <!-- PAGE: EXPENSES -->
     <div id="pageExpenses" class="page">
       <div class="card" style="margin-bottom:16px">
         <div class="card-header">
@@ -254,10 +240,7 @@
       </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════
-         PAGE: INVESTMENTS (was Savings & Invest — insurance
-         pools moved out to their own page below)
-    ══════════════════════════════════════════════════ -->
+    <!-- PAGE: INVESTMENTS -->
     <div id="pageSavings" class="page">
       <div class="card" style="margin-bottom:16px">
         <div class="card-header">
@@ -279,11 +262,7 @@
       </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════
-         PAGE: INSURANCE POOLS (monthly funding toward annual
-         premiums — separate from Insurance Goals below, which
-         tracks lifetime/long-term progress)
-    ══════════════════════════════════════════════════ -->
+    <!-- PAGE: INSURANCE POOLS -->
     <div id="pageInsfund" class="page">
       <div class="card" style="margin-bottom:16px">
         <div class="card-header">
@@ -305,63 +284,29 @@
       </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════
-         PAGE: INSURANCE GOALS
-    ══════════════════════════════════════════════════ -->
+    <!-- PAGE: INSURANCE GOALS -->
     <div id="pageInsurance" class="page">
       <div id="insPageGoals"></div>
     </div>
 
-      </div>
-      <div class="txn-page-stats">
-        <div class="subpage-stat">
-          <div class="lbl">Income</div>
-          <div class="val" id="txnPageIncome" style="color:var(--green)">₹0</div>
-        </div>
-        <div class="subpage-stat">
-          <div class="lbl">Expenses</div>
-          <div class="val" id="txnPageExpense" style="color:var(--red)">₹0</div>
-        </div>
-        <div class="subpage-stat">
-          <div class="lbl">Savings</div>
-          <div class="val" id="txnPageSaving" style="color:var(--accent2)">₹0</div>
-        </div>
-        <div class="subpage-stat">
-          <div class="lbl">Remaining Cash</div>
-          <div class="val" id="txnPageCash" style="color:var(--gold)">₹0</div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">All Transactions</div>
-          <div class="card-action" onclick="openModal()">+ Add</div>
-        </div>
-        <div style="display:flex;gap:8px;font-size:11px;color:var(--muted);padding-bottom:6px;border-bottom:1px solid var(--border)">
-          <span style="width:8px"></span><span style="flex:1">Description / Category / Date</span>
-          <span style="width:60px">Type</span><span style="width:80px;text-align:right">Amount</span>
-        </div>
-        <div id="txnPageList"></div>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════
-         PAGE: BUCKETS
-    ══════════════════════════════════════════════════ -->
+    <!-- PAGE: BUCKETS -->
     <div id="pageBuckets" class="page">
       <div id="bucketsPageList"></div>
     </div>
 
-
-    <!-- ══════════════════════════════════════════════════
-         PAGE: NET WORTH
-    ══════════════════════════════════════════════════ -->
+    <!-- PAGE: NET WORTH -->
     <div id="pageNetworth" class="page">
 
-      <!-- Hero total -->
+      <!-- Hero -->
       <div class="nw-hero">
         <div class="nw-hero-label">Total Net Worth</div>
         <div class="nw-hero-value" id="nwHeroValue">₹0</div>
         <div class="nw-hero-sub" id="nwHeroSub">Assets minus Liabilities</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px">
+          As of
+          <select id="nwMonthSel" onchange="renderNetworthPage()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;"></select>
+          <select id="nwYearSel" onchange="renderNetworthPage()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;margin-left:4px;"></select>
+        </div>
       </div>
 
       <div class="nw-grid">
@@ -370,35 +315,74 @@
         <div class="card">
           <div class="nw-section-title">Assets</div>
 
+          <!-- Equity -->
           <div class="nw-field">
             <span class="nw-field-label">Equity Portfolio</span>
-            <span class="nw-field-value" onclick="editNwField('equity')" id="nwv-equity">
-              ₹0 <span class="edit-hint">✎</span>
-            </span>
+            <span class="nw-field-value" onclick="editNwField('equity')" id="nwv-equity">₹0 <span class="edit-hint">✎</span></span>
           </div>
+
+          <!-- EPF -->
           <div class="nw-field">
             <span class="nw-field-label">EPF Balance</span>
-            <span class="nw-field-value" onclick="editNwField('epf')" id="nwv-epf">
-              ₹0 <span class="edit-hint">✎</span>
-            </span>
+            <span class="nw-field-value" onclick="editNwField('epf')" id="nwv-epf">₹0 <span class="edit-hint">✎</span></span>
           </div>
+
+          <!-- Bank -->
           <div class="nw-field">
             <span class="nw-field-label">Bank Balance</span>
-            <span class="nw-field-value" onclick="editNwField('bank')" id="nwv-bank">
-              ₹0 <span class="edit-hint">✎</span>
-            </span>
+            <span class="nw-field-value" onclick="editNwField('bank')" id="nwv-bank">₹0 <span class="edit-hint">✎</span></span>
           </div>
+
+          <!-- Cash -->
           <div class="nw-field">
             <span class="nw-field-label">Cash in Hand</span>
-            <span class="nw-field-value" onclick="editNwField('cash')" id="nwv-cash">
-              ₹0 <span class="edit-hint">✎</span>
-            </span>
+            <span class="nw-field-value" onclick="editNwField('cash')" id="nwv-cash">₹0 <span class="edit-hint">✎</span></span>
           </div>
+
+          <!-- Savings from Investments (auto) -->
           <div class="nw-field">
-            <span class="nw-field-label">FD / RD / Gold</span>
-            <span class="nw-field-value" onclick="editNwField('fd')" id="nwv-fd">
-              ₹0 <span class="edit-hint">✎</span>
-            </span>
+            <span class="nw-field-label">Investments <span class="nw-loan-auto">Auto · Jun 2026→</span></span>
+            <span class="nw-field-value" id="nwv-savings" style="cursor:default;">₹0</span>
+          </div>
+
+          <!-- Gold rows -->
+          <div class="nw-subsection">
+            <div class="nw-subsection-header">
+              <span>Gold</span>
+              <span id="nwGoldRate" style="font-size:10px;color:var(--muted)">Fetching rate...</span>
+              <button class="nw-add-btn" onclick="addNwRow('gold')">+ Add</button>
+            </div>
+            <div id="nwGoldRows"></div>
+            <div class="nw-field" style="padding-top:6px">
+              <span style="font-size:12px;color:var(--muted)">Total Gold</span>
+              <span style="font-size:12px;font-weight:600;color:var(--accent)" id="nwGoldTotal">₹0</span>
+            </div>
+          </div>
+
+          <!-- FD rows -->
+          <div class="nw-subsection">
+            <div class="nw-subsection-header">
+              <span>Fixed Deposits</span>
+              <button class="nw-add-btn" onclick="addNwRow('fd')">+ Add</button>
+            </div>
+            <div id="nwFdRows"></div>
+            <div class="nw-field" style="padding-top:6px">
+              <span style="font-size:12px;color:var(--muted)">Total FD</span>
+              <span style="font-size:12px;font-weight:600;color:var(--accent)" id="nwFdTotal">₹0</span>
+            </div>
+          </div>
+
+          <!-- RD rows -->
+          <div class="nw-subsection">
+            <div class="nw-subsection-header">
+              <span>Recurring Deposits</span>
+              <button class="nw-add-btn" onclick="addNwRow('rd')">+ Add</button>
+            </div>
+            <div id="nwRdRows"></div>
+            <div class="nw-field" style="padding-top:6px">
+              <span style="font-size:12px;color:var(--muted)">Total RD</span>
+              <span style="font-size:12px;font-weight:600;color:var(--accent)" id="nwRdTotal">₹0</span>
+            </div>
           </div>
 
           <div class="nw-total-row">
@@ -412,17 +396,12 @@
           <div class="nw-section-title">Liabilities</div>
 
           <div class="nw-field">
-            <span class="nw-field-label">
-              Personal Loan
-              <span class="nw-loan-auto">Auto</span>
-            </span>
+            <span class="nw-field-label">Personal Loan <span class="nw-loan-auto">Auto</span></span>
             <span class="nw-field-value" id="nwv-loan" style="cursor:default;">₹0</span>
           </div>
           <div class="nw-field">
             <span class="nw-field-label">Credit Card Outstanding</span>
-            <span class="nw-field-value" onclick="editNwField('cc')" id="nwv-cc">
-              ₹0 <span class="edit-hint">✎</span>
-            </span>
+            <span class="nw-field-value" onclick="editNwField('cc')" id="nwv-cc">₹0 <span class="edit-hint">✎</span></span>
           </div>
 
           <div class="nw-total-row">
@@ -430,25 +409,13 @@
             <span class="nw-total-liabilities" id="nwTotalLiabilities">₹0</span>
           </div>
 
-          <!-- Loan amortization info -->
-          <div style="margin-top:16px; padding:12px; background:rgba(212,175,55,0.06); border:1px solid var(--border); border-radius:8px;">
-            <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:8px;">Loan Schedule</div>
-            <div class="nw-field" style="padding:5px 0;">
-              <span style="font-size:12px; color:var(--muted)">Original Principal</span>
-              <span style="font-size:12px;">₹4,00,000</span>
-            </div>
-            <div class="nw-field" style="padding:5px 0;">
-              <span style="font-size:12px; color:var(--muted)">Monthly EMI</span>
-              <span style="font-size:12px;">₹13,271</span>
-            </div>
-            <div class="nw-field" style="padding:5px 0;">
-              <span style="font-size:12px; color:var(--muted)">Rate</span>
-              <span style="font-size:12px;">11.64% p.a.</span>
-            </div>
-            <div class="nw-field" style="padding:5px 0; border:none;">
-              <span style="font-size:12px; color:var(--muted)">EMIs Remaining</span>
-              <span style="font-size:12px;" id="nwLoanEmiLeft">—</span>
-            </div>
+          <!-- Loan schedule -->
+          <div style="margin-top:16px;padding:12px;background:rgba(212,175,55,0.06);border:1px solid var(--border);border-radius:8px;">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;">Loan Schedule</div>
+            <div class="nw-field" style="padding:5px 0;"><span style="font-size:12px;color:var(--muted)">Original Principal</span><span style="font-size:12px;">₹4,00,000</span></div>
+            <div class="nw-field" style="padding:5px 0;"><span style="font-size:12px;color:var(--muted)">Monthly EMI</span><span style="font-size:12px;">₹13,271</span></div>
+            <div class="nw-field" style="padding:5px 0;"><span style="font-size:12px;color:var(--muted)">Rate</span><span style="font-size:12px;">11.64% p.a.</span></div>
+            <div class="nw-field" style="padding:5px 0;border:none;"><span style="font-size:12px;color:var(--muted)">EMIs Remaining</span><span style="font-size:12px;" id="nwLoanEmiLeft">—</span></div>
           </div>
         </div>
 
@@ -458,7 +425,7 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title">Net Worth History</div>
-          <div style="font-size:11px; color:var(--muted)">Snapshot per month</div>
+          <div style="font-size:11px;color:var(--muted)">Snapshot per month</div>
         </div>
         <div id="nwHistory"></div>
       </div>
@@ -468,9 +435,7 @@
   </div><!-- /content -->
 </div><!-- /main -->
 
-<!-- ════════ MODALS ═════════════════════════════════════════ -->
-
-<!-- ADD TRANSACTION -->
+<!-- MODALS -->
 <div class="modal-bg" id="modalBg">
   <div class="modal">
     <h3>Add Transaction</h3>
@@ -513,7 +478,6 @@
   </div>
 </div>
 
-<!-- BUCKET MODAL -->
 <div class="modal-bg" id="bucketModalBg">
   <div class="modal" style="width:340px">
     <h3>Update Savings Bucket</h3>
@@ -532,30 +496,39 @@
   </div>
 </div>
 
+<!-- NW ROW MODAL -->
+<div class="modal-bg" id="nwRowModalBg">
+  <div class="modal" style="width:360px">
+    <h3 id="nwRowModalTitle">Add Entry</h3>
+    <div class="form-group" id="nwRowNameGroup">
+      <label>Name / Description</label>
+      <input type="text" id="nwRowName" placeholder="e.g. SBI FD, HDFC RD...">
+    </div>
+    <div class="form-group" id="nwRowGramsGroup" style="display:none">
+      <label>Weight (grams)</label>
+      <input type="number" id="nwRowGrams" placeholder="0" min="0" step="0.01">
+    </div>
+    <div class="form-group" id="nwRowAmountGroup">
+      <label id="nwRowAmountLabel">Amount (₹)</label>
+      <input type="number" id="nwRowAmount" placeholder="0" min="0">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeNwRowModal()">Cancel</button>
+      <button class="btn-save" onclick="saveNwRow()">Save</button>
+    </div>
+  </div>
+</div>
 
-<!-- TOAST -->
 <div class="toast" id="toastEl"></div>
 
-<!-- BOTTOM NAV (mobile only) -->
+<!-- BOTTOM NAV -->
 <nav class="bottom-nav" id="bottomNav">
-  <div class="bottom-nav-item active" data-page="dashboard">
-    <span class="bn-icon">⊞</span><span>Home</span>
-  </div>
-  <div class="bottom-nav-item" data-page="income">
-    <span class="bn-icon">↓</span><span>Income</span>
-  </div>
-  <div class="bottom-nav-item" data-page="expenses">
-    <span class="bn-icon">↑</span><span>Expenses</span>
-  </div>
-  <div class="bottom-nav-item" data-page="savings">
-    <span class="bn-icon">📈</span><span>Invest</span>
-  </div>
-  <div class="bottom-nav-item" data-page="buckets">
-    <span class="bn-icon">🪣</span><span>Buckets</span>
-  </div>
-  <div class="bottom-nav-item" data-page="networth">
-    <span class="bn-icon">👑</span><span>Net Worth</span>
-  </div>
+  <div class="bottom-nav-item active" data-page="dashboard"><span class="bn-icon">⊞</span><span>Home</span></div>
+  <div class="bottom-nav-item" data-page="income"><span class="bn-icon">↓</span><span>Income</span></div>
+  <div class="bottom-nav-item" data-page="expenses"><span class="bn-icon">↑</span><span>Expenses</span></div>
+  <div class="bottom-nav-item" data-page="savings"><span class="bn-icon">📈</span><span>Invest</span></div>
+  <div class="bottom-nav-item" data-page="buckets"><span class="bn-icon">🪣</span><span>Buckets</span></div>
+  <div class="bottom-nav-item" data-page="networth"><span class="bn-icon">👑</span><span>Net Worth</span></div>
 </nav>
 
 <script src="arthena.js"></script>
