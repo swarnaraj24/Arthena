@@ -1142,31 +1142,40 @@ function calcSavingsFromInvestments() {
 
 /* ── Gold price fetch ───────────────────────────────────── */
 async function fetchGoldRate() {
+  // XAU = 1 troy oz = 31.1035 grams
+  // These APIs return XAU value in INR per troy oz or per unit
   const endpoints = [
-    // Try multiple free APIs — browser runs these client-side so no domain restrictions
     async () => {
-      const r = await fetch('https://api.metals.live/v1/spot/gold', { signal: AbortSignal.timeout(5000) });
+      // fawazahmed0 currency API — free, no auth, daily updated
+      const r = await fetch(
+        'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/xau.json',
+        { signal: AbortSignal.timeout(6000) }
+      );
+      const d = await r.json();
+      // d.xau.inr = value of 1 XAU (troy oz) in INR
+      if (d && d.xau && d.xau.inr) return Math.round(d.xau.inr / 31.1035);
+    },
+    async () => {
+      // fallback mirror of same API
+      const r = await fetch(
+        'https://latest.currency-api.pages.dev/v1/currencies/xau.json',
+        { signal: AbortSignal.timeout(6000) }
+      );
+      const d = await r.json();
+      if (d && d.xau && d.xau.inr) return Math.round(d.xau.inr / 31.1035);
+    },
+    async () => {
+      // metals.live fallback
+      const r = await fetch('https://api.metals.live/v1/spot/gold', { signal: AbortSignal.timeout(6000) });
       const d = await r.json();
       if (d && d.price) return Math.round((d.price * 84) / 31.1035);
-    },
-    async () => {
-      // Gold price in INR from frankfurter-style API
-      const r = await fetch('https://api.frankfurter.app/latest?from=XAU&to=INR', { signal: AbortSignal.timeout(5000) });
-      const d = await r.json();
-      if (d && d.rates && d.rates.INR) return Math.round(d.rates.INR / 31.1035);
-    },
-    async () => {
-      // metals.dev free tier
-      const r = await fetch('https://api.metals.dev/v1/latest?api_key=demo&base=INR&currencies=XAU', { signal: AbortSignal.timeout(5000) });
-      const d = await r.json();
-      if (d && d.currencies && d.currencies.XAU) return Math.round(1 / d.currencies.XAU / 31.1035);
     },
   ];
 
   for (const fn of endpoints) {
     try {
       const rate = await fn();
-      if (rate && rate > 1000) { // sanity check — gold > ₹1000/g
+      if (rate && rate > 1000) {
         nwGoldRatePerGram = rate;
         break;
       }
