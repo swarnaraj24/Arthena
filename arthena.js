@@ -136,13 +136,15 @@ const TXN_CLASSES = { income:'type-income', expense:'type-expense', saving:'type
    transactions are additional detail, not used for totals.
 ─────────────────────────────────────────────────────────────── */
 let state = {
-  targets:      { ...DEFAULT_TARGETS },   // editable targets
-  poolAnnual:   { ...DEFAULT_POOL_ANNUAL }, // editable annual premiums — source of truth for pool monthly targets + linked goal targets
-  parked:       { mfsip: 'Nifty 50 Index Fund' }, // catKey -> "where it's parked" (MF/RD name), pre-filled defaults
+  targets:      { ...DEFAULT_TARGETS },
+  poolAnnual:   { ...DEFAULT_POOL_ANNUAL },
+  parked:       { mfsip: 'Nifty 50 Index Fund' },
   months:       {},
   currentYear:  2026,
   currentMonth: 5,
   currentPage:  'dashboard',
+  theme:        'dark',
+  networth:     {},   // key: 'YYYY-MM' → { equity, epf, bank, cash, fd, cc }
 };
 
 /* ── STORAGE ─────────────────────────────────────────────────── */
@@ -160,6 +162,8 @@ function loadState() {
       state.currentYear  = parsed.currentYear  || 2026;
       state.currentMonth = parsed.currentMonth || 5;
       state.currentPage  = parsed.currentPage  || 'dashboard';
+      state.theme        = parsed.theme        || 'dark';
+      state.networth     = parsed.networth     || {};
 
       // ── ONE-TIME MIGRATION: old flat LIC target (₹874/mo) → new
       // quarterly auto-split (₹788/mo). Only overwrite if it's still
@@ -310,9 +314,9 @@ function rebuildMonths(y, selectM) {
 }
 
 /* ── NAV ─────────────────────────────────────────────────────── */
-const PAGE_MAP    = { dashboard:'pageDashboard', income:'pageIncome', expenses:'pageExpenses', savings:'pageSavings', insfund:'pageInsfund', insurance:'pageInsurance', buckets:'pageBuckets' };
-const PAGE_TITLES = { dashboard:'Dashboard', income:'Income', expenses:'Expenses', savings:'Investments', insfund:'Insurance Pools', insurance:'Insurance Goals', buckets:'Goals / Buckets' };
-const PAGE_SUBS   = { dashboard:'Overview of your income, expenses, savings and goals', income:'Click Actual to edit · Click Target to edit · Checkbox = received', expenses:'Click Actual to edit · Click Target to edit · Checkbox = paid', savings:'Click Actual to edit · Click Target to edit · Checkbox = done & adds Target to Actual', insfund:'Annual premium pools — check off once funded for the month, edit targets anytime for inflation', insurance:'Track your insurance saving goals', buckets:'Track your savings buckets and goals' };
+const PAGE_MAP    = { dashboard:'pageDashboard', income:'pageIncome', expenses:'pageExpenses', savings:'pageSavings', insfund:'pageInsfund', insurance:'pageInsurance', buckets:'pageBuckets', networth:'pageNetworth' };
+const PAGE_TITLES = { dashboard:'Dashboard', income:'Income', expenses:'Expenses', savings:'Investments', insfund:'Insurance Pools', insurance:'Insurance Goals', buckets:'Goals / Buckets', networth:'Net Worth' };
+const PAGE_SUBS   = { dashboard:'Overview of your income, expenses, savings and goals', income:'Click Actual to edit · Click Target to edit · Checkbox = received', expenses:'Click Actual to edit · Click Target to edit · Checkbox = paid', savings:'Click Actual to edit · Click Target to edit · Checkbox = done & adds Target to Actual', insfund:'Annual premium pools — check off once funded for the month, edit targets anytime for inflation', insurance:'Track your insurance saving goals', buckets:'Track your savings buckets and goals', networth:'Your total assets minus liabilities · Loan outstanding is auto-calculated' };
 
 function navigate(page) {
   state.currentPage = page;
@@ -845,6 +849,7 @@ function renderAll() {
   else if (p==='insfund')        renderInsfundPage();
   else if (p==='insurance')      renderInsurancePage();
   else if (p==='buckets')      { renderBucketsWidget(); renderBucketsPage(); }
+  else if (p==='networth')       renderNetworthPage();
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -1002,6 +1007,178 @@ document.addEventListener('DOMContentLoaded', () => {
   bindBgClose('bucketModalBg',  closeBucketModal);
   document.getElementById('txnType').addEventListener('change', updateCatDropdown);
   document.getElementById('txnCat').addEventListener('change', toggleParkedField);
+  applyTheme(state.theme);
   navigate(state.currentPage || 'dashboard');
 });
 
+/* ════════════════════════════════════════════════════════════
+   THEME TOGGLE
+════════════════════════════════════════════════════════════ */
+function applyTheme(theme) {
+  if (theme === 'light') {
+    document.body.classList.add('light-theme');
+    const btn = document.getElementById('themeToggle');
+    if (btn) btn.textContent = '☀️';
+  } else {
+    document.body.classList.remove('light-theme');
+    const btn = document.getElementById('themeToggle');
+    if (btn) btn.textContent = '🌙';
+  }
+}
+
+function toggleTheme() {
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  applyTheme(state.theme);
+  saveState();
+}
+
+/* ════════════════════════════════════════════════════════════
+   NET WORTH
+   Loan: ₹4,00,000 @ 11.64% p.a., EMI ₹13,271, started June 2026
+   First EMI paid June 2026 → 35 months remaining from July 2026
+════════════════════════════════════════════════════════════ */
+
+const NW_LOAN_PRINCIPAL  = 400000;
+const NW_LOAN_RATE_PA    = 11.64;
+const NW_LOAN_EMI        = 13271;
+const NW_LOAN_START_YEAR = 2026;
+const NW_LOAN_START_MONTH = 5; // June = index 5 (0-based), first EMI paid
+
+function calcLoanOutstanding(year, month) {
+  // Build amortization from June 2026 (first EMI paid)
+  // Outstanding AFTER the EMI for the given month is paid
+  const monthRate = NW_LOAN_RATE_PA / 100 / 12;
+  let balance = NW_LOAN_PRINCIPAL;
+
+  // Months elapsed from June 2026 (inclusive) to current month
+  const startTotal = NW_LOAN_START_YEAR * 12 + NW_LOAN_START_MONTH;
+  const curTotal   = year * 12 + month;
+  const emisPaid   = curTotal - startTotal + 1; // +1 because June 2026 EMI is paid
+
+  if (emisPaid <= 0) return NW_LOAN_PRINCIPAL; // before first EMI
+  const totalEmi = Math.round(NW_LOAN_PRINCIPAL / NW_LOAN_EMI * 1.5); // safety cap
+
+  for (let i = 0; i < Math.min(emisPaid, totalEmi); i++) {
+    const interest = balance * monthRate;
+    const principal = NW_LOAN_EMI - interest;
+    balance -= principal;
+    if (balance <= 0) { balance = 0; break; }
+  }
+  return Math.max(0, Math.round(balance));
+}
+
+function emisRemaining(year, month) {
+  const startTotal = NW_LOAN_START_YEAR * 12 + NW_LOAN_START_MONTH;
+  const curTotal   = year * 12 + month;
+  const paid = curTotal - startTotal + 1;
+  return Math.max(0, 36 - paid);
+}
+
+function nwKey(year, month) { return `${year}-${String(month).padStart(2,'0')}`; }
+
+function ensureNwMonth(year, month) {
+  const k = nwKey(year, month);
+  if (!state.networth[k]) {
+    state.networth[k] = { equity:0, epf:0, bank:0, cash:0, fd:0, cc:0 };
+  }
+  return state.networth[k];
+}
+
+function renderNetworthPage() {
+  const y = state.currentYear;
+  const m = state.currentMonth;
+  const d = ensureNwMonth(y, m);
+
+  const loanOutstanding = calcLoanOutstanding(y, m);
+  const emiLeft         = emisRemaining(y, m);
+
+  const totalAssets      = d.equity + d.epf + d.bank + d.cash + d.fd;
+  const totalLiabilities = loanOutstanding + d.cc;
+  const netWorth         = totalAssets - totalLiabilities;
+
+  // Hero
+  document.getElementById('nwHeroValue').textContent = fmtINR(netWorth);
+  const sub = document.getElementById('nwHeroSub');
+  sub.textContent = `${fmtINR(totalAssets)} assets − ${fmtINR(totalLiabilities)} liabilities`;
+  sub.className = 'nw-hero-sub ' + (netWorth >= 0 ? 'nw-hero-positive' : 'nw-hero-negative');
+  document.getElementById('nwHeroValue').style.color = netWorth >= 0 ? 'var(--accent)' : 'var(--red)';
+
+  // Fields
+  const fields = ['equity','epf','bank','cash','fd','cc'];
+  fields.forEach(f => {
+    const el = document.getElementById(`nwv-${f}`);
+    if (!el) return;
+    el.innerHTML = `${fmtINR(d[f])} <span class="edit-hint">✎</span>`;
+  });
+
+  // Loan (auto)
+  document.getElementById('nwv-loan').textContent = fmtINR(loanOutstanding);
+  document.getElementById('nwLoanEmiLeft').textContent = emiLeft > 0 ? `${emiLeft} months` : 'Fully paid';
+
+  // Totals
+  document.getElementById('nwTotalAssets').textContent      = fmtINR(totalAssets);
+  document.getElementById('nwTotalLiabilities').textContent = fmtINR(totalLiabilities);
+
+  // History
+  renderNwHistory();
+}
+
+function renderNwHistory() {
+  const el = document.getElementById('nwHistory');
+  if (!el) return;
+
+  const entries = Object.keys(state.networth)
+    .sort((a,b) => b.localeCompare(a))
+    .slice(0, 12)
+    .map(k => {
+      const d = state.networth[k];
+      const [yr, mo] = k.split('-').map(Number);
+      const loan = calcLoanOutstanding(yr, mo);
+      const assets = d.equity + d.epf + d.bank + d.cash + d.fd;
+      const liab   = loan + d.cc;
+      const nw     = assets - liab;
+      return { k, yr, mo, nw };
+    })
+    .filter(e => e.nw !== 0 || Object.values(state.networth[e.k]).some(v => v > 0));
+
+  if (!entries.length) {
+    el.innerHTML = `<div class="empty-state">No data yet. Enter values above to track net worth over time.</div>`;
+    return;
+  }
+
+  el.innerHTML = entries.map(e => `
+    <div class="nw-history-row">
+      <span class="nw-history-month">${monthLabel(e.yr, e.mo)}</span>
+      <span class="nw-history-val" style="color:${e.nw >= 0 ? 'var(--green)' : 'var(--red)'}">
+        ${fmtINR(e.nw)}
+      </span>
+    </div>
+  `).join('');
+}
+
+const NW_FIELD_LABELS = {
+  equity: 'Equity Portfolio (₹)',
+  epf:    'EPF Balance (₹)',
+  bank:   'Bank Balance (₹)',
+  cash:   'Cash in Hand (₹)',
+  fd:     'FD / RD / Gold (₹)',
+  cc:     'Credit Card Outstanding (₹)',
+};
+
+function editNwField(field) {
+  const y = state.currentYear;
+  const m = state.currentMonth;
+  const d = ensureNwMonth(y, m);
+  const current = d[field] || 0;
+  const label   = NW_FIELD_LABELS[field] || field;
+
+  const val = prompt(`${label}\nCurrent: ${fmtINR(current)}\n\nEnter new amount:`, current);
+  if (val === null) return;
+  const parsed = parseFloat(val.replace(/,/g,''));
+  if (isNaN(parsed) || parsed < 0) { toast('Invalid amount', 'error'); return; }
+
+  d[field] = parsed;
+  saveState();
+  renderNetworthPage();
+  toast('Net worth updated', 'success');
+}
