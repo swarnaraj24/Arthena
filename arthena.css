@@ -64,9 +64,11 @@ body {
   align-items: center; gap: 8px; overflow: visible;
 }
 .logo img {
-  width: 64px; height: 64px; object-fit: contain;
+  width: 72px; height: 72px; object-fit: contain;
   display: block;
-  filter: drop-shadow(var(--gold-glow));
+  border-radius: 12px;
+  background: #0a1628;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
 }
 .logo-tag {
   font-size: 10px; color: var(--muted); text-align: center; line-height: 1.5;
