@@ -144,9 +144,10 @@ let state = {
   currentMonth: 5,
   currentPage:  'dashboard',
   theme:        'dark',
-  networth:     {},   // key: 'YYYY-MM' → { equity, epf, bank, cash, cc, gold:[], fd:[], rd:[] }
+  networth:     {},
   nwViewYear:   2026,
   nwViewMonth:  5,
+  nwPriorInvest: 0,  // one-time manual entry: total invested before June 2026
   loans:        [
     { id:'pl1', name:'Personal Loan', principal:400000, ratePA:11.64, emi:13271, startYear:2026, startMonth:5, totalEmis:36 }
   ],
@@ -171,6 +172,7 @@ function loadState() {
       state.networth     = parsed.networth     || {};
       state.nwViewYear   = parsed.nwViewYear   || 2026;
       state.nwViewMonth  = parsed.nwViewMonth  || 5;
+      state.nwPriorInvest = parsed.nwPriorInvest || 0;
       state.loans        = parsed.loans        || [
         { id:'pl1', name:'Personal Loan', principal:400000, ratePA:11.64, emi:13271, startYear:2026, startMonth:5, totalEmis:36 }
       ];
@@ -1103,15 +1105,14 @@ function ensureNwMonth(year, month) {
 
 /* ── Savings auto-pull ──────────────────────────────────── */
 function calcSavingsFromInvestments() {
-  // Sum all saving-type actuals from June 2026 (month index 5) onwards
-  const startTotal = 2026 * 12 + 5;
-  let total = 0;
+  // Prior investments (one-time manual entry before June 2026)
+  let total = state.nwPriorInvest || 0;
 
-  // Build a set of saving category keys
+  // Sum all saving-type actuals from June 2026 onwards
+  const startTotal = 2026 * 12 + 5;
   const savingKeys = new Set([...SAVINGS_CATS, ...INSPOOL_CATS].map(c => c.key));
 
   Object.keys(state.months).forEach(key => {
-    // key format: 'YYYY-M' e.g. '2026-5'
     const parts = key.split('-');
     if (parts.length < 2) return;
     const yr = parseInt(parts[0]);
@@ -1122,7 +1123,6 @@ function calcSavingsFromInvestments() {
     const monthData = state.months[key];
     if (!monthData) return;
 
-    // Sum actuals for saving categories
     if (monthData.actuals) {
       Object.keys(monthData.actuals).forEach(catKey => {
         if (savingKeys.has(catKey)) {
@@ -1131,12 +1131,9 @@ function calcSavingsFromInvestments() {
       });
     }
 
-    // Also sum saving-type transactions (manually added)
     if (Array.isArray(monthData.transactions)) {
       monthData.transactions.forEach(txn => {
-        if (txn.type === 'saving') {
-          total += (txn.amount || 0);
-        }
+        if (txn.type === 'saving') total += (txn.amount || 0);
       });
     }
   });
@@ -1145,20 +1142,42 @@ function calcSavingsFromInvestments() {
 
 /* ── Gold price fetch ───────────────────────────────────── */
 async function fetchGoldRate() {
-  try {
-    const res = await fetch('https://api.metals.live/v1/spot/gold', { signal: AbortSignal.timeout(5000) });
-    const data = await res.json();
-    if (data && data.price) {
-      nwGoldRatePerGram = Math.round((data.price * 84) / 31.1035);
-    }
-  } catch {
-    nwGoldRatePerGram = 0;
+  const endpoints = [
+    // Try multiple free APIs — browser runs these client-side so no domain restrictions
+    async () => {
+      const r = await fetch('https://api.metals.live/v1/spot/gold', { signal: AbortSignal.timeout(5000) });
+      const d = await r.json();
+      if (d && d.price) return Math.round((d.price * 84) / 31.1035);
+    },
+    async () => {
+      // Gold price in INR from frankfurter-style API
+      const r = await fetch('https://api.frankfurter.app/latest?from=XAU&to=INR', { signal: AbortSignal.timeout(5000) });
+      const d = await r.json();
+      if (d && d.rates && d.rates.INR) return Math.round(d.rates.INR / 31.1035);
+    },
+    async () => {
+      // metals.dev free tier
+      const r = await fetch('https://api.metals.dev/v1/latest?api_key=demo&base=INR&currencies=XAU', { signal: AbortSignal.timeout(5000) });
+      const d = await r.json();
+      if (d && d.currencies && d.currencies.XAU) return Math.round(1 / d.currencies.XAU / 31.1035);
+    },
+  ];
+
+  for (const fn of endpoints) {
+    try {
+      const rate = await fn();
+      if (rate && rate > 1000) { // sanity check — gold > ₹1000/g
+        nwGoldRatePerGram = rate;
+        break;
+      }
+    } catch { /* try next */ }
   }
+
   const rateEl = document.getElementById('nwGoldRate');
   if (rateEl) {
     rateEl.textContent = nwGoldRatePerGram > 0
       ? `24K: ${fmtINR(nwGoldRatePerGram)}/g`
-      : 'Rate unavailable';
+      : 'Enter ₹ value manually';
   }
   if (state.currentPage === 'networth') renderNetworthPage();
 }
@@ -1246,6 +1265,8 @@ function renderNetworthPage() {
   });
   const savEl = document.getElementById('nwv-savings');
   if (savEl) savEl.textContent = fmtINR(savingsAuto);
+  const priorEl = document.getElementById('nwv-prior');
+  if (priorEl) priorEl.innerHTML = `${fmtINR(state.nwPriorInvest||0)} <span class="edit-hint">✎</span>`;
   const ccEl = document.getElementById('nwv-cc');
   if (ccEl) ccEl.innerHTML = `${fmtINR(d.cc||0)} <span class="edit-hint">✎</span>`;
 
@@ -1383,6 +1404,18 @@ const NW_FIELD_LABELS = {
   bank:'Bank Balance (₹)',       cash:'Cash in Hand (₹)',
   cc:'Credit Card Outstanding (₹)',
 };
+
+function editPriorInvest() {
+  const current = state.nwPriorInvest || 0;
+  const val = prompt(`Prior Investments (₹)\nTotal invested from earning start till May 2026\nCurrent: ${fmtINR(current)}\n\nEnter amount:`, current);
+  if (val === null) return;
+  const parsed = parseFloat(String(val).replace(/,/g,''));
+  if (isNaN(parsed) || parsed < 0) { toast('Invalid amount', 'error'); return; }
+  state.nwPriorInvest = parsed;
+  saveState();
+  renderNetworthPage();
+  toast('Prior investments updated', 'success');
+}
 
 function editNwField(field) {
   const d = ensureNwMonth(state.nwViewYear, state.nwViewMonth);
