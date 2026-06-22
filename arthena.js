@@ -1141,34 +1141,34 @@ function calcSavingsFromInvestments() {
 }
 
 /* ── Gold price fetch ───────────────────────────────────── */
+// International XAU spot × INDIA_GOLD_MARKUP ≈ Indian retail 24K price
+// Markup accounts for ~10% import duty + 3% GST + small margin
+// Update INDIA_GOLD_MARKUP if policy changes (budget announcements etc.)
+const INDIA_GOLD_MARKUP = 1.15;
+
 async function fetchGoldRate() {
-  // XAU = 1 troy oz = 31.1035 grams
-  // These APIs return XAU value in INR per troy oz or per unit
   const endpoints = [
     async () => {
-      // fawazahmed0 currency API — free, no auth, daily updated
       const r = await fetch(
         'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/xau.json',
         { signal: AbortSignal.timeout(6000) }
       );
       const d = await r.json();
-      // d.xau.inr = value of 1 XAU (troy oz) in INR
-      if (d && d.xau && d.xau.inr) return Math.round(d.xau.inr / 31.1035);
+      // d.xau.inr = value of 1 troy oz in INR (international spot)
+      if (d && d.xau && d.xau.inr) return Math.round((d.xau.inr / 31.1035) * INDIA_GOLD_MARKUP);
     },
     async () => {
-      // fallback mirror of same API
       const r = await fetch(
         'https://latest.currency-api.pages.dev/v1/currencies/xau.json',
         { signal: AbortSignal.timeout(6000) }
       );
       const d = await r.json();
-      if (d && d.xau && d.xau.inr) return Math.round(d.xau.inr / 31.1035);
+      if (d && d.xau && d.xau.inr) return Math.round((d.xau.inr / 31.1035) * INDIA_GOLD_MARKUP);
     },
     async () => {
-      // metals.live fallback
       const r = await fetch('https://api.metals.live/v1/spot/gold', { signal: AbortSignal.timeout(6000) });
       const d = await r.json();
-      if (d && d.price) return Math.round((d.price * 84) / 31.1035);
+      if (d && d.price) return Math.round((d.price * 84 / 31.1035) * INDIA_GOLD_MARKUP);
     },
   ];
 
@@ -1185,7 +1185,7 @@ async function fetchGoldRate() {
   const rateEl = document.getElementById('nwGoldRate');
   if (rateEl) {
     rateEl.textContent = nwGoldRatePerGram > 0
-      ? `24K: ${fmtINR(nwGoldRatePerGram)}/g`
+      ? `24K: ${fmtINR(nwGoldRatePerGram)}/g (approx)`
       : 'Enter ₹ value manually';
   }
   if (state.currentPage === 'networth') renderNetworthPage();
