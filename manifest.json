@@ -1,0 +1,24 @@
+{
+  "name": "Arthena – Wealth Guided by Wisdom",
+  "short_name": "Arthena",
+  "description": "Personal finance tracker — track income, expenses, savings and net worth",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a1628",
+  "theme_color": "#d4af37",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

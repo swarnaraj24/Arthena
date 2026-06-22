@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Arthena – Wealth Guided by Wisdom</title>
 <link rel="stylesheet" href="arthena.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#d4af37">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   .page { display:none; }
   .page-income-header {
@@ -39,6 +42,7 @@
   <div class="nav-item" data-page="insurance"><span class="nav-icon">🛡</span> Insurance Goals</div>
   <div class="nav-item" data-page="transactions"><span class="nav-icon">⇄</span> Transactions</div>
   <div class="nav-item" data-page="buckets"><span class="nav-icon">🪣</span> Goals / Buckets</div>
+  <div class="nav-item" data-page="import"><span class="nav-icon">📥</span> Import Statement</div>
   <div class="sidebar-footer">
     <div class="tagline">Track. Save. Grow.<br>Build financial freedom.</div>
   </div>
@@ -357,6 +361,70 @@
       <div id="bucketsPageList"></div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════
+         PAGE: IMPORT STATEMENT
+    ══════════════════════════════════════════════════ -->
+    <div id="pageImport" class="page">
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <div class="card-title">Step 1 — Card &amp; Period</div>
+        </div>
+        <div class="import-row">
+          <div class="import-field">
+            <label>Card</label>
+            <select id="impCard">
+              <option value="hdfc">HDFC Credit Card</option>
+              <option value="icici1">ICICI Credit Card 1</option>
+              <option value="icici2">ICICI Credit Card 2</option>
+            </select>
+          </div>
+          <div class="import-field">
+            <label>From Date</label>
+            <input type="date" id="impFrom">
+          </div>
+          <div class="import-field">
+            <label>To Date</label>
+            <input type="date" id="impTo">
+          </div>
+        </div>
+        <div class="import-hint">Only transactions dated within this range will be pulled from the statement. Each transaction is still booked into its own real calendar month — this range just bounds what's eligible from the PDF.</div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <div class="card-title">Step 2 — Upload Statement PDF</div>
+        </div>
+        <input type="file" id="impFile" accept="application/pdf">
+        <div class="import-hint">Processed entirely in your browser. The file is never uploaded anywhere.</div>
+        <button class="btn-add" style="margin-top:10px" onclick="parseStatementPdf()">Parse Statement</button>
+        <span id="impParseStatus" class="import-hint" style="margin-left:8px"></span>
+      </div>
+
+      <div class="card" id="impReviewCard" style="display:none">
+        <div class="card-header">
+          <div class="card-title">Step 3 — Review &amp; Categorize</div>
+        </div>
+        <div style="display:flex;gap:8px;font-size:11px;color:var(--muted);padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <span style="flex:2">Description</span>
+          <span style="flex:1">Date</span>
+          <span style="flex:1">Amount</span>
+          <span style="flex:1">Category</span>
+          <span style="width:60px">Include</span>
+        </div>
+        <div id="impReviewList"></div>
+
+        <div class="import-summary">
+          <div>Rows parsed <strong id="impSumTotal">0</strong></div>
+          <div>Excluded (payments/transfers) <strong id="impSumExcluded">0</strong></div>
+          <div>Will import as expenses <strong id="impSumExpense">₹0</strong></div>
+        </div>
+
+        <button class="btn-add" onclick="confirmStatementImport()">Import to Arthena</button>
+      </div>
+
+    </div>
+
   </div><!-- /content -->
 </div><!-- /main -->
 
@@ -448,8 +516,19 @@
   <div class="bottom-nav-item" data-page="buckets">
     <span class="bn-icon">🪣</span><span>Buckets</span>
   </div>
+  <div class="bottom-nav-item" data-page="import">
+    <span class="bn-icon">📥</span><span>Import</span>
+  </div>
 </nav>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="arthena.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+</script>
 </body>
 </html>
