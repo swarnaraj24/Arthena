@@ -1,12 +1,11 @@
-const CACHE_NAME = 'arthena-v1';
+const CACHE_NAME = 'arthena-v2';
 const ASSETS = [
   '/',
   '/index.html',
   '/arthena.js',
   '/arthena.css',
   '/icon-192.png',
-  '/icon-512.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+  '/icon-512.png'
 ];
 
 // Install: cache all core assets

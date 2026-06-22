@@ -310,9 +310,9 @@ function rebuildMonths(y, selectM) {
 }
 
 /* ── NAV ─────────────────────────────────────────────────────── */
-const PAGE_MAP    = { dashboard:'pageDashboard', income:'pageIncome', expenses:'pageExpenses', savings:'pageSavings', insfund:'pageInsfund', insurance:'pageInsurance', transactions:'pageTransactions', buckets:'pageBuckets' };
-const PAGE_TITLES = { dashboard:'Dashboard', income:'Income', expenses:'Expenses', savings:'Investments', insfund:'Insurance Pools', insurance:'Insurance Goals', transactions:'All Transactions', buckets:'Goals / Buckets' };
-const PAGE_SUBS   = { dashboard:'Overview of your income, expenses, savings and goals', income:'Click Actual to edit · Click Target to edit · Checkbox = received', expenses:'Click Actual to edit · Click Target to edit · Checkbox = paid', savings:'Click Actual to edit · Click Target to edit · Checkbox = done & adds Target to Actual', insfund:'Annual premium pools — check off once funded for the month, edit targets anytime for inflation', insurance:'Track your insurance saving goals', transactions:'Full transaction history for the selected month', buckets:'Track your savings buckets and goals' };
+const PAGE_MAP    = { dashboard:'pageDashboard', income:'pageIncome', expenses:'pageExpenses', savings:'pageSavings', insfund:'pageInsfund', insurance:'pageInsurance', buckets:'pageBuckets' };
+const PAGE_TITLES = { dashboard:'Dashboard', income:'Income', expenses:'Expenses', savings:'Investments', insfund:'Insurance Pools', insurance:'Insurance Goals', buckets:'Goals / Buckets' };
+const PAGE_SUBS   = { dashboard:'Overview of your income, expenses, savings and goals', income:'Click Actual to edit · Click Target to edit · Checkbox = received', expenses:'Click Actual to edit · Click Target to edit · Checkbox = paid', savings:'Click Actual to edit · Click Target to edit · Checkbox = done & adds Target to Actual', insfund:'Annual premium pools — check off once funded for the month, edit targets anytime for inflation', insurance:'Track your insurance saving goals', buckets:'Track your savings buckets and goals' };
 
 function navigate(page) {
   state.currentPage = page;
@@ -766,17 +766,6 @@ function renderInsurancePage() {
   }).join('');
 }
 
-function renderTransactionsPage() {
-  const txns = ensureMonth(state.currentYear, state.currentMonth).transactions;
-  document.getElementById('txnPageTitle').textContent =
-    `${monthLabel(state.currentYear, state.currentMonth)} — ${txns.length} transaction${txns.length!==1?'s':''}`;
-  const t = computeTotals(state.currentYear, state.currentMonth);
-  document.getElementById('txnPageIncome').textContent  = fmtINR(t.income);
-  document.getElementById('txnPageExpense').textContent = fmtINR(t.expense);
-  document.getElementById('txnPageSaving').textContent  = fmtINR(t.saving);
-  document.getElementById('txnPageCash').textContent    = fmtINR(t.cash);
-  renderTxnList('txnPageList', txns, true);
-}
 
 function renderBucketsPage() {
   const d = ensureMonth(state.currentYear, state.currentMonth);
@@ -855,7 +844,6 @@ function renderAll() {
   else if (p==='savings')        renderSavingsPage();
   else if (p==='insfund')        renderInsfundPage();
   else if (p==='insurance')      renderInsurancePage();
-  else if (p==='transactions')   renderTransactionsPage();
   else if (p==='buckets')      { renderBucketsWidget(); renderBucketsPage(); }
 }
 
@@ -1016,3 +1004,4 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('txnCat').addEventListener('change', toggleParkedField);
   navigate(state.currentPage || 'dashboard');
 });
+
