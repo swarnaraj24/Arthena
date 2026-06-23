@@ -582,6 +582,18 @@ select:focus { border-color: var(--accent); }
 /* Hide monthly stat cards on net worth page */
 body.page-networth #statCardsRow { display: none; }
 body.page-networth .topbar select { display: none; }
+/* ── BUDGET ALERTS ───────────────────────────────────────── */
+.budget-alert {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 10px; border-radius: 8px; margin-bottom: 6px;
+  font-size: 11px; line-height: 1.4;
+}
+.budget-alert.over   { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3); color: var(--red); }
+.budget-alert.near   { background: rgba(251,146,60,0.12);  border: 1px solid rgba(251,146,60,0.3);  color: var(--orange); }
+.budget-alert-icon   { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+.budget-alert-text   { flex: 1; }
+.budget-alert-pct    { font-weight: 700; margin-left: 4px; }
+
 /* ── SYNC INDICATOR ─────────────────────────────────────── */
 .sync-indicator {
   display: flex; align-items: center; gap: 5px;

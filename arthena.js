@@ -1040,6 +1040,68 @@ function renderMonthlyTargets() {
   const inc = sum(INCOME_CATS), exp = sum(EXPENSE_CATS), sav = sum(SAVING_LIKE_CATS);
   const set = (id,v) => { const el = document.getElementById(id); if (el) el.textContent = fmtINR(v); };
   set('mtIncome', inc); set('mtExpense', exp); set('mtSaving', sav);
+  renderBudgetAlerts();
+}
+
+function renderBudgetAlerts() {
+  const el = document.getElementById('budgetAlerts');
+  if (!el) return;
+
+  const y = state.currentYear;
+  const m = state.currentMonth;
+  const alerts = [];
+
+  // Check expense categories
+  EXPENSE_CATS.forEach(c => {
+    const actual = getActual(y, m, c.key);
+    const target = getTarget(c.key);
+    if (target <= 0 || actual <= 0) return;
+    const pct = (actual / target) * 100;
+    if (pct >= 100) {
+      alerts.push({
+        type: 'over',
+        icon: '🚨',
+        label: c.label.replace(/^\S+\s/, ''), // strip emoji
+        actual, target, pct
+      });
+    } else if (pct >= 80) {
+      alerts.push({
+        type: 'near',
+        icon: '⚠️',
+        label: c.label.replace(/^\S+\s/, ''),
+        actual, target, pct
+      });
+    }
+  });
+
+  // Check overall expense vs target
+  const totalExpActual = EXPENSE_CATS.reduce((s,c) => s + getActual(y,m,c.key), 0);
+  const totalExpTarget = EXPENSE_CATS.reduce((s,c) => s + getTarget(c.key), 0);
+  if (totalExpTarget > 0 && totalExpActual > totalExpTarget) {
+    alerts.unshift({
+      type: 'over',
+      icon: '🚨',
+      label: 'Total Expenses',
+      actual: totalExpActual,
+      target: totalExpTarget,
+      pct: (totalExpActual / totalExpTarget) * 100
+    });
+  }
+
+  if (!alerts.length) {
+    el.innerHTML = `<div style="font-size:11px;color:var(--green);margin-top:4px;">✓ All categories within budget</div>`;
+    return;
+  }
+
+  el.innerHTML = alerts.map(a => `
+    <div class="budget-alert ${a.type}">
+      <span class="budget-alert-icon">${a.icon}</span>
+      <span class="budget-alert-text">
+        <strong>${a.label}</strong>
+        ${fmtINR(a.actual)} of ${fmtINR(a.target)}
+        <span class="budget-alert-pct">(${Math.round(a.pct)}%)</span>
+      </span>
+    </div>`).join('');
 }
 
 
