@@ -8,6 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#d4af37">
 <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <style>
   .page { display:none; }
   .page-income-header {
@@ -60,6 +61,10 @@
       <select id="monthSel"></select>
       <select id="yearSel"></select>
       <button class="btn-theme" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark theme">🌙</button>
+      <div class="sync-indicator" id="syncIndicator" title="Cloud sync status">
+        <span class="sync-dot" id="syncDot"></span>
+        <span class="sync-label" id="syncLabel">Syncing...</span>
+      </div>
       <button class="btn-reset" onclick="resetAll()" title="Erase all entered data and restore defaults">↺ Reset</button>
       <button class="btn-add" onclick="openModal()">+ Add Transaction</button>
     </div>
@@ -423,9 +428,10 @@
       <!-- Net Worth History -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title">Net Worth History</div>
-          <div style="font-size:11px;color:var(--muted)">Snapshot per month</div>
+          <div class="card-title">Net Worth Trend</div>
+          <div style="font-size:11px;color:var(--muted)">Last 12 months</div>
         </div>
+        <div id="nwTrendChart" style="width:100%;height:120px;margin-bottom:16px;"></div>
         <div id="nwHistory"></div>
       </div>
 

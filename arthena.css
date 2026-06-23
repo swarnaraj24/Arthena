@@ -582,6 +582,41 @@ select:focus { border-color: var(--accent); }
 /* Hide monthly stat cards on net worth page */
 body.page-networth #statCardsRow { display: none; }
 body.page-networth .topbar select { display: none; }
+/* ── SYNC INDICATOR ─────────────────────────────────────── */
+.sync-indicator {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--muted);
+  padding: 5px 10px; border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+}
+.sync-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--muted); flex-shrink: 0;
+  transition: background 0.3s;
+}
+.sync-dot.synced  { background: var(--green); }
+.sync-dot.syncing { background: var(--orange); animation: pulse 1s infinite; }
+.sync-dot.error   { background: var(--red); }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+/* ── LIGHT THEME OVERRIDES ──────────────────────────────── */
+body.light-theme .stat-card         { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+body.light-theme .card              { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+body.light-theme .modal             { box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+body.light-theme .btn-add           { background: var(--accent); }
+body.light-theme .nav-item.active   { background: rgba(139,105,20,0.1); }
+body.light-theme .nw-hero           { box-shadow: 0 2px 16px rgba(139,105,20,0.1); }
+body.light-theme select,
+body.light-theme input              { background: var(--surface2); color: var(--text); border-color: var(--border); }
+body.light-theme .topbar            { border-bottom-color: var(--border); background: var(--surface); }
+body.light-theme .bottom-nav        { background: var(--surface); border-top-color: var(--border); }
+body.light-theme .data-table tr:hover td { background: rgba(139,105,20,0.05); }
+
+/* ── THEME TOGGLE ────────────────────────────────────────── */
 .btn-theme {
   background: transparent;
   border: 1px solid var(--border);

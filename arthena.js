@@ -161,40 +161,45 @@ let state = {
 function saveState() {
   const json = JSON.stringify(state);
   localStorage.setItem(LS_KEY, json);
-  // Async write to Supabase — fire and forget, no UI block
+  setSyncStatus('syncing', 'Saving...');
   fetch(`${SB_URL}/rest/v1/arthena_state`, {
     method: 'POST',
     headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
     body: JSON.stringify({ id: SB_ROW_ID, data: state, updated_at: new Date().toISOString() })
-  }).catch(() => {}); // silent fail — localStorage is the safety net
+  }).then(r => {
+    if (r.ok) setSyncStatus('synced', 'Saved');
+    else setSyncStatus('error', 'Save failed');
+  }).catch(() => setSyncStatus('error', 'Offline'));
 }
 
 async function syncFromSupabase() {
+  setSyncStatus('syncing', 'Syncing...');
   try {
     const res = await fetch(
       `${SB_URL}/rest/v1/arthena_state?id=eq.${SB_ROW_ID}&select=data,updated_at`,
       { headers: SB_HEADERS }
     );
-    if (!res.ok) return false;
+    if (!res.ok) { setSyncStatus('error', 'Sync failed'); return false; }
     const rows = await res.json();
-    if (!rows || rows.length === 0) return false;
+    if (!rows || rows.length === 0) { setSyncStatus('synced', 'No data'); return false; }
     const remote = rows[0].data;
-    if (!remote) return false;
+    if (!remote) { setSyncStatus('synced', 'Ready'); return false; }
 
-    // Compare timestamps — use whichever is newer
     const localRaw  = localStorage.getItem(LS_KEY);
     const localData = localRaw ? JSON.parse(localRaw) : null;
     const remoteTime = new Date(rows[0].updated_at).getTime();
     const localTime  = localData?._savedAt ? new Date(localData._savedAt).getTime() : 0;
 
     if (remoteTime >= localTime) {
-      // Remote is newer — apply it
       applyParsedState(remote);
       localStorage.setItem(LS_KEY, JSON.stringify(state));
+      setSyncStatus('synced', 'Synced');
       return true;
     }
+    setSyncStatus('synced', 'Up to date');
     return false;
   } catch {
+    setSyncStatus('error', 'Offline');
     return false;
   }
 }
@@ -1081,6 +1086,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 /* ════════════════════════════════════════════════════════════
    THEME TOGGLE
 ════════════════════════════════════════════════════════════ */
+function setSyncStatus(status, label) {
+  const dot = document.getElementById('syncDot');
+  const lbl = document.getElementById('syncLabel');
+  if (!dot || !lbl) return;
+  dot.className = `sync-dot ${status}`;
+  lbl.textContent = label;
+}
+
 function applyTheme(theme) {
   if (theme === 'light') {
     document.body.classList.add('light-theme');
@@ -1394,10 +1407,12 @@ function renderNwRows(containerId, rows, type) {
 /* ── History ────────────────────────────────────────────── */
 function renderNwHistory() {
   const container = document.getElementById('nwHistory');
+  const chartEl   = document.getElementById('nwTrendChart');
   if (!container) return;
+
   const entries = Object.keys(state.networth)
-    .sort((a,b) => b.localeCompare(a))
-    .slice(0, 12)
+    .sort((a,b) => a.localeCompare(b))
+    .slice(-12)
     .map(k => {
       const d   = state.networth[k];
       const [yr, mo] = k.split('-').map(Number);
@@ -1411,11 +1426,43 @@ function renderNwHistory() {
       return { k, yr, mo, nw: assets - liab };
     });
 
+  // Render trend chart (SVG line chart)
+  if (chartEl && entries.length > 1) {
+    const vals   = entries.map(e => e.nw);
+    const minVal = Math.min(...vals);
+    const maxVal = Math.max(...vals);
+    const range  = maxVal - minVal || 1;
+    const W = 800, H = 100, pad = 20;
+    const xStep = (W - pad*2) / (entries.length - 1);
+    const yScale = v => H - pad - ((v - minVal) / range) * (H - pad*2);
+    const points = entries.map((e,i) => `${pad + i*xStep},${yScale(e.nw)}`).join(' ');
+    const areaPoints = `${pad},${H-pad} ` + points + ` ${pad + (entries.length-1)*xStep},${H-pad}`;
+
+    chartEl.innerHTML = `
+      <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+        <defs>
+          <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <polygon points="${areaPoints}" fill="url(#nwGrad)"/>
+        <polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        ${entries.map((e,i) => `
+          <circle cx="${pad + i*xStep}" cy="${yScale(e.nw)}" r="3" fill="var(--accent)"/>
+          <text x="${pad + i*xStep}" y="${H-4}" text-anchor="middle" font-size="9" fill="var(--muted)">${monthLabel(e.yr,e.mo).split(' ')[0]}</text>
+        `).join('')}
+      </svg>`;
+  } else if (chartEl) {
+    chartEl.innerHTML = `<div style="font-size:11px;color:var(--muted);text-align:center;padding:20px 0;">Add data for 2+ months to see trend</div>`;
+  }
+
   if (!entries.length) {
     container.innerHTML = `<div class="empty-state">No snapshots yet. Enter values above to start tracking.</div>`;
     return;
   }
-  container.innerHTML = entries.map(e => `
+  // Show table in reverse order (newest first)
+  container.innerHTML = [...entries].reverse().map(e => `
     <div class="nw-history-row">
       <span class="nw-history-month">${monthLabel(e.yr, e.mo)}</span>
       <span class="nw-history-val" style="color:${e.nw>=0?'var(--green)':'var(--red)'}">${fmtINR(e.nw)}</span>
