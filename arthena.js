@@ -1200,7 +1200,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const updated = await syncFromSupabase();
     if (updated) {
       applyTheme(state.theme);
-      navigate(state.currentPage || 'dashboard');
+      // Re-render current page only — do NOT navigate, which would change page
+      renderAll();
       toast('Synced from cloud', 'success');
     }
   }, 30000);
