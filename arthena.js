@@ -321,7 +321,10 @@ function ensureMonth(y, m) {
 }
 
 /* ── HELPERS ─────────────────────────────────────────────────── */
-function fmtINR(n) { return '₹' + Math.abs(Math.round(n)).toLocaleString('en-IN'); }
+function fmtINR(n) {
+  const abs = Math.abs(Math.round(n));
+  return (n < 0 ? '-₹' : '₹') + abs.toLocaleString('en-IN');
+}
 function monthLabel(y, m) { return `${MONTH_NAMES[m]}-${y}`; }
 /* Pool categories (father_ins/mother_ins/term_ins) are special-cased:
    their monthly "target" is ALWAYS annual ÷ 12, never independently
@@ -454,11 +457,14 @@ function navigate(page) {
 ════════════════════════════════════════════════════════════ */
 function renderStats() {
   const t = computeTotals(state.currentYear, state.currentMonth);
-  document.getElementById('s-income').textContent  = fmtINR(t.income);
-  document.getElementById('s-expense').textContent = fmtINR(t.expense);
-  document.getElementById('s-savings').textContent = fmtINR(t.saving);
-  document.getElementById('s-cash').textContent    = fmtINR(t.cash);
-  document.getElementById('s-rate').textContent    = t.rate.toFixed(2) + '%';
+  const st = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+  const sc = (id,c) => { const e=document.getElementById(id); if(e) e.style.color=c; };
+  st('s-income',  fmtINR(t.income));
+  st('s-expense', fmtINR(t.expense));
+  st('s-savings', fmtINR(t.saving));
+  st('s-cash',    fmtINR(t.cash));
+  st('s-rate',    t.rate.toFixed(2) + '%');
+  sc('s-cash', t.cash < 0 ? 'var(--red)' : 'var(--gold)');
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -531,6 +537,7 @@ function renderBarChart() {
   }
   const maxV = Math.max(...pts.map(p => p.val), 1);
   const bc = document.getElementById('barChart');
+  if (!bc) return;
   bc.innerHTML = '';
   pts.forEach((p, i) => {
     const pct = Math.max(Math.round((p.val/maxV)*100), p.val > 0 ? 4 : 0);
@@ -912,6 +919,7 @@ function renderBucketsPage() {
 /* ── TRANSACTION LIST ────────────────────────────────────────── */
 function renderTxnList(containerId, txns, allowDelete) {
   const el = document.getElementById(containerId);
+  if (!el) return;
   if (!txns.length) { el.innerHTML = `<div class="empty-state">No transactions for this month.</div>`; return; }
   const sorted = [...txns].sort((a,b) => b.dateISO.localeCompare(a.dateISO));
   el.innerHTML = sorted.map(t => {
@@ -1363,14 +1371,17 @@ function ensureNwMonth(year, month) {
   return d;
 }
 
-/* ── Savings auto-pull ──────────────────────────────────── */
-function calcSavingsFromInvestments() {
-  // Prior investments (one-time manual entry before June 2026)
-  let total = state.nwPriorInvest || 0;
+/* ── Savings breakdown for Net Worth ────────────────────── */
+function calcInvestmentBreakdown(viewYear, viewMonth) {
+  // prior = manual entry (before Jun 2026) + all saving actuals BEFORE viewed month
+  // current = saving actuals for viewed month only
+  // total = prior + current
+  const startTotal   = 2026 * 12 + 5; // June 2026
+  const viewTotal    = viewYear * 12 + viewMonth;
+  const savingKeys   = new Set([...SAVINGS_CATS, ...INSPOOL_CATS].map(c => c.key));
 
-  // Sum all saving-type actuals from June 2026 onwards
-  const startTotal = 2026 * 12 + 5;
-  const savingKeys = new Set([...SAVINGS_CATS, ...INSPOOL_CATS].map(c => c.key));
+  let priorAutomatic = 0; // Jun 2026 up to but not including viewed month
+  let currentMonth   = 0; // viewed month only
 
   Object.keys(state.months).forEach(key => {
     const parts = key.split('-');
@@ -1378,26 +1389,37 @@ function calcSavingsFromInvestments() {
     const yr = parseInt(parts[0]);
     const mo = parseInt(parts[1]);
     if (isNaN(yr) || isNaN(mo)) return;
-    if ((yr * 12 + mo) < startTotal) return;
+    const kTotal = yr * 12 + mo;
+    if (kTotal < startTotal) return; // before Jun 2026
 
     const monthData = state.months[key];
     if (!monthData) return;
 
+    let monthSum = 0;
     if (monthData.actuals) {
       Object.keys(monthData.actuals).forEach(catKey => {
-        if (savingKeys.has(catKey)) {
-          total += (monthData.actuals[catKey] || 0);
-        }
+        if (savingKeys.has(catKey)) monthSum += (monthData.actuals[catKey] || 0);
+      });
+    }
+    if (Array.isArray(monthData.transactions)) {
+      monthData.transactions.forEach(txn => {
+        if (txn.type === 'saving') monthSum += (txn.amount || 0);
       });
     }
 
-    if (Array.isArray(monthData.transactions)) {
-      monthData.transactions.forEach(txn => {
-        if (txn.type === 'saving') total += (txn.amount || 0);
-      });
-    }
+    if (kTotal < viewTotal) priorAutomatic += monthSum;
+    else if (kTotal === viewTotal) currentMonth = monthSum;
   });
-  return total;
+
+  const prior   = (state.nwPriorInvest || 0) + priorAutomatic;
+  const total   = prior + currentMonth;
+  return { prior, currentMonth, total };
+}
+
+// Keep backward compat — used in history render
+function calcSavingsFromInvestments() {
+  const b = calcInvestmentBreakdown(state.nwViewYear, state.nwViewMonth);
+  return b.total;
 }
 
 /* ── Gold price fetch ───────────────────────────────────── */
@@ -1479,8 +1501,9 @@ function renderNetworthPage() {
 
   initNwDatePicker();
 
-  // Savings auto
-  const savingsAuto = calcSavingsFromInvestments();
+  // Investment breakdown
+  const invBreakdown = calcInvestmentBreakdown(y, m);
+  const savingsAuto  = invBreakdown.total;
 
   // Gold
   const goldTotal = d.gold.reduce((sum, g) => {
@@ -1523,9 +1546,10 @@ function renderNetworthPage() {
   const netWorth = totalAssets - totalLiabilities;
 
   // Hero
-  document.getElementById('nwHeroValue').textContent = fmtINR(netWorth);
-  document.getElementById('nwHeroValue').style.color = netWorth >= 0 ? 'var(--accent)' : 'var(--red)';
-  document.getElementById('nwHeroSub').textContent = `${fmtINR(totalAssets)} assets − ${fmtINR(totalLiabilities)} liabilities`;
+  const hvEl = document.getElementById('nwHeroValue');
+  if (hvEl) { hvEl.textContent = fmtINR(netWorth); hvEl.style.color = netWorth >= 0 ? 'var(--accent)' : 'var(--red)'; }
+  const hsEl = document.getElementById('nwHeroSub');
+  if (hsEl) hsEl.textContent = `${fmtINR(totalAssets)} assets − ${fmtINR(totalLiabilities)} liabilities`;
 
   // Simple fields
   ['equity','epf','bank','cash'].forEach(f => {
@@ -1533,9 +1557,20 @@ function renderNetworthPage() {
     if (el) el.innerHTML = `${fmtINR(d[f]||0)} <span class="edit-hint">✎</span>`;
   });
   const savEl = document.getElementById('nwv-savings');
-  if (savEl) savEl.textContent = fmtINR(savingsAuto);
+  if (savEl) savEl.textContent = fmtINR(invBreakdown.total);
   const priorEl = document.getElementById('nwv-prior');
   if (priorEl) priorEl.innerHTML = `${fmtINR(state.nwPriorInvest||0)} <span class="edit-hint">✎</span>`;
+  const invPriorEl = document.getElementById('nwv-inv-prior');
+  if (invPriorEl) invPriorEl.textContent = fmtINR(invBreakdown.prior - (state.nwPriorInvest||0));
+  const invCurEl = document.getElementById('nwv-inv-current');
+  if (invCurEl) invCurEl.textContent = fmtINR(invBreakdown.currentMonth);
+
+  // Update labels with month context
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const prevLabel = m > 0 ? `Auto · till ${MONTHS[m-1]} ${y}` : `Auto · till Dec ${y-1}`;
+  const curLabel  = `Auto · ${MONTHS[m]} ${y}`;
+  const lp = document.getElementById('nwInvPriorLabel'); if (lp) lp.textContent = prevLabel;
+  const lc = document.getElementById('nwInvCurLabel');  if (lc) lc.textContent = curLabel;
   const ccEl = document.getElementById('nwv-cc');
   if (ccEl) ccEl.innerHTML = `${fmtINR(d.cc||0)} <span class="edit-hint">✎</span>`;
 
@@ -1663,7 +1698,7 @@ function addNwRow(type) {
   document.getElementById('nwRowAmount').value = '';
   document.getElementById('nwRowGramsGroup').style.display  = type==='gold' ? 'block' : 'none';
   document.getElementById('nwRowAmountGroup').style.display = 'block';
-  document.getElementById('nwRowAmountLabel').textContent   = type==='gold' ? 'Fallback Value ₹ (if rate unavailable)' : 'Amount (₹)';
+  const nalEl = document.getElementById('nwRowAmountLabel'); if (nalEl) nalEl.textContent = type==='gold' ? 'Fallback Value ₹ (if rate unavailable)' : 'Amount (₹)';
   document.getElementById('nwRowModalBg').style.display     = 'flex';
 }
 
@@ -1760,7 +1795,7 @@ function copyFromPrevMonth() {
 
 
 function openLoanModal() {
-  document.getElementById('loanModalTitle').textContent = 'Add Loan';
+  const lmtEl = document.getElementById('loanModalTitle'); if (lmtEl) lmtEl.textContent = 'Add Loan';
   document.getElementById('loanName').value       = '';
   document.getElementById('loanPrincipal').value  = '';
   document.getElementById('loanRate').value       = '';

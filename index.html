@@ -356,8 +356,16 @@
             <span class="nw-field-value" onclick="editPriorInvest()" id="nwv-prior">₹0 <span class="edit-hint">✎</span></span>
           </div>
           <div class="nw-field">
-            <span class="nw-field-label">Investments <span class="nw-loan-auto">Auto · Jun 2026→</span></span>
-            <span class="nw-field-value" id="nwv-savings" style="cursor:default;">₹0</span>
+            <span class="nw-field-label">Investments <span class="nw-loan-auto" id="nwInvPriorLabel">Auto · before this month</span></span>
+            <span class="nw-field-value" id="nwv-inv-prior" style="cursor:default;">₹0</span>
+          </div>
+          <div class="nw-field">
+            <span class="nw-field-label">Investments <span class="nw-loan-auto" id="nwInvCurLabel">Auto · this month</span></span>
+            <span class="nw-field-value" id="nwv-inv-current" style="cursor:default;">₹0</span>
+          </div>
+          <div class="nw-field" style="border-top:1px solid var(--border);padding-top:10px;">
+            <span class="nw-field-label" style="font-weight:700;">Total Investments</span>
+            <span class="nw-field-value" id="nwv-savings" style="cursor:default;color:var(--accent);">₹0</span>
           </div>
 
           <!-- Gold rows -->
