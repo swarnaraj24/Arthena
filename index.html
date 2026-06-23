@@ -302,10 +302,11 @@
         <div class="nw-hero-label">Total Net Worth</div>
         <div class="nw-hero-value" id="nwHeroValue">₹0</div>
         <div class="nw-hero-sub" id="nwHeroSub">Assets minus Liabilities</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:10px">
+        <div style="font-size:11px;color:var(--muted);margin-top:10px;display:flex;align-items:center;justify-content:center;gap:12px;">
           As of
           <select id="nwMonthSel" onchange="renderNetworthPage()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;"></select>
           <select id="nwYearSel" onchange="renderNetworthPage()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;margin-left:4px;"></select>
+          <button class="nw-add-btn" onclick="copyFromPrevMonth()" title="Copy all values from previous month">↩ Copy prev month</button>
         </div>
       </div>
 

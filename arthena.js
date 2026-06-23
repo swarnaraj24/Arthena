@@ -1457,7 +1457,32 @@ function editNwField(field) {
   toast('Updated', 'success');
 }
 
-/* ── Loan Modal ─────────────────────────────────────────── */
+function copyFromPrevMonth() {
+  const y = state.nwViewYear;
+  const m = state.nwViewMonth;
+  let prevYear = y, prevMonth = m - 1;
+  if (prevMonth < 0) { prevMonth = 11; prevYear -= 1; }
+  const prevKey = nwKey(prevYear, prevMonth);
+  const p = state.networth[prevKey];
+  if (!p) { toast('No previous month data found', 'error'); return; }
+  if (!confirm(`Copy all values from ${monthLabel(prevYear, prevMonth)} to ${monthLabel(y, m)}? This will overwrite current values.`)) return;
+  const k = nwKey(y, m);
+  state.networth[k] = {
+    equity: p.equity || 0,
+    epf:    p.epf    || 0,
+    bank:   p.bank   || 0,
+    cash:   p.cash   || 0,
+    cc:     p.cc     || 0,
+    gold:   JSON.parse(JSON.stringify(p.gold || [])),
+    fd:     JSON.parse(JSON.stringify(p.fd   || [])),
+    rd:     JSON.parse(JSON.stringify(p.rd   || [])),
+  };
+  saveState();
+  renderNetworthPage();
+  toast(`Copied from ${monthLabel(prevYear, prevMonth)}`, 'success');
+}
+
+
 function openLoanModal() {
   document.getElementById('loanModalTitle').textContent = 'Add Loan';
   document.getElementById('loanName').value       = '';
