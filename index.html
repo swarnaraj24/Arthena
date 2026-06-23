@@ -65,6 +65,10 @@
         <span class="sync-dot" id="syncDot"></span>
         <span class="sync-label" id="syncLabel">Syncing...</span>
       </div>
+      <button class="btn-backup" onclick="exportBackup()" title="Download data backup">⬇ Backup</button>
+      <label class="btn-backup" title="Restore from backup file" style="cursor:pointer;">
+        ⬆ Restore <input type="file" id="restoreFile" accept=".json" onchange="importBackup(event)" style="display:none;">
+      </label>
       <button class="btn-reset" onclick="resetAll()" title="Erase all entered data and restore defaults">↺ Reset</button>
       <button class="btn-add" onclick="openModal()">+ Add Transaction</button>
     </div>

@@ -158,18 +158,74 @@ let state = {
 };
 
 /* ── STORAGE ─────────────────────────────────────────────────── */
+/* ── Input validation ───────────────────────────────────── */
+function validateAmount(val) {
+  if (val === null || val === undefined || val === '') return null;
+  const n = parseFloat(String(val).replace(/[,\s₹]/g, ''));
+  if (isNaN(n)) return null;
+  if (n < 0) return null;
+  if (n > 1e10) return null; // sanity cap — ₹1000 crore
+  return n;
+}
+
+/* ── Offline queue ──────────────────────────────────────── */
+let _offlineQueue = [];
+let _retrying     = false;
+
+async function flushOfflineQueue() {
+  if (_retrying || _offlineQueue.length === 0) return;
+  _retrying = true;
+  while (_offlineQueue.length > 0) {
+    const payload = _offlineQueue[0];
+    try {
+      const r = await fetch(`${SB_URL}/rest/v1/arthena_state`, {
+        method: 'POST',
+        headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify(payload)
+      });
+      if (r.ok) {
+        _offlineQueue.shift();
+        setSyncStatus('synced', 'Saved');
+      } else {
+        break; // stop — still failing
+      }
+    } catch {
+      break; // still offline
+    }
+  }
+  _retrying = false;
+}
+
+// Listen for network restore and flush queue
+window.addEventListener('online', () => {
+  setSyncStatus('syncing', 'Reconnecting...');
+  flushOfflineQueue();
+});
+
 function saveState() {
+  // Stamp the save time for conflict resolution
+  state._savedAt = new Date().toISOString();
   const json = JSON.stringify(state);
   localStorage.setItem(LS_KEY, json);
   setSyncStatus('syncing', 'Saving...');
+
+  const payload = { id: SB_ROW_ID, data: state, updated_at: state._savedAt };
+
   fetch(`${SB_URL}/rest/v1/arthena_state`, {
     method: 'POST',
     headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
-    body: JSON.stringify({ id: SB_ROW_ID, data: state, updated_at: new Date().toISOString() })
+    body: JSON.stringify(payload)
   }).then(r => {
-    if (r.ok) setSyncStatus('synced', 'Saved');
-    else setSyncStatus('error', 'Save failed');
-  }).catch(() => setSyncStatus('error', 'Offline'));
+    if (r.ok) {
+      setSyncStatus('synced', 'Saved');
+    } else {
+      setSyncStatus('error', 'Save failed');
+      _offlineQueue.push(payload);
+    }
+  }).catch(() => {
+    setSyncStatus('error', 'Offline — queued');
+    _offlineQueue.push(payload);
+  });
 }
 
 async function syncFromSupabase() {
@@ -706,8 +762,8 @@ function startEdit(cell, field, catKey, type) {
 }
 
 function commitEdit(inp, field, catKey, type) {
-  const raw = parseFloat(inp.value);
-  const val = isNaN(raw) || raw < 0 ? 0 : Math.round(raw);
+  const validated = validateAmount(inp.value);
+  const val = validated !== null ? Math.round(validated) : 0;
   if (field === 'annual') {
     state.poolAnnual[catKey] = val;
   } else if (field === 'target') {
@@ -884,23 +940,37 @@ function deleteTxn(id) {
 
 /* ── MASTER RENDER ───────────────────────────────────────────── */
 function renderAll() {
-  ensureMonth(state.currentYear, state.currentMonth);
-  renderStats();
-  const p = state.currentPage;
-  if (p === 'dashboard') {
-    renderCatCard('incomeTable',  INCOME_CATS);
-    renderCatCard('expenseTable', EXPENSE_CATS);
-    renderCatCard('savingsTable', SAVING_LIKE_CATS);
-    renderTrendChart(); renderBarChart(); renderPie();
-    renderAnnual(); renderInsGoals(); renderBucketsWidget();
-    renderDashboardTxns(); renderMonthlyTargets();
-  } else if (p==='income')       renderIncomePage();
-  else if (p==='expenses')       renderExpensePage();
-  else if (p==='savings')        renderSavingsPage();
-  else if (p==='insfund')        renderInsfundPage();
-  else if (p==='insurance')      renderInsurancePage();
-  else if (p==='buckets')      { renderBucketsWidget(); renderBucketsPage(); }
-  else if (p==='networth')       renderNetworthPage();
+  try {
+    ensureMonth(state.currentYear, state.currentMonth);
+    renderStats();
+    const p = state.currentPage;
+    if (p === 'dashboard') {
+      renderCatCard('incomeTable',  INCOME_CATS);
+      renderCatCard('expenseTable', EXPENSE_CATS);
+      renderCatCard('savingsTable', SAVING_LIKE_CATS);
+      renderTrendChart(); renderBarChart(); renderPie();
+      renderAnnual(); renderInsGoals(); renderBucketsWidget();
+      renderDashboardTxns(); renderMonthlyTargets();
+    } else if (p==='income')       renderIncomePage();
+    else if (p==='expenses')       renderExpensePage();
+    else if (p==='savings')        renderSavingsPage();
+    else if (p==='insfund')        renderInsfundPage();
+    else if (p==='insurance')      renderInsurancePage();
+    else if (p==='buckets')      { renderBucketsWidget(); renderBucketsPage(); }
+    else if (p==='networth')       renderNetworthPage();
+  } catch(err) {
+    console.error('Arthena render error:', err);
+    const content = document.querySelector('.content');
+    if (content) {
+      content.innerHTML = `
+        <div style="padding:40px;text-align:center;">
+          <div style="font-size:32px;margin-bottom:16px;">⚠️</div>
+          <div style="font-size:16px;font-weight:700;color:var(--red);margin-bottom:8px;">Something went wrong</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:20px;">${err.message || 'Unknown error'}</div>
+          <button onclick="location.reload()" style="background:var(--accent);color:var(--bg);border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Reload App</button>
+        </div>`;
+    }
+  }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -940,12 +1010,12 @@ function saveTransaction() {
   const type   = document.getElementById('txnType').value;
   const catKey = document.getElementById('txnCat').value;
   const desc   = document.getElementById('txnDesc').value.trim();
-  const amount = parseFloat(document.getElementById('txnAmount').value);
+  const amount = validateAmount(document.getElementById('txnAmount').value);
   const dateV  = document.getElementById('txnDate').value;
-  if (!catKey)                   { toast('Select a category','error'); return; }
-  if (!desc)                     { toast('Enter a description','error'); return; }
-  if (isNaN(amount)||amount<=0)  { toast('Enter a valid amount > 0','error'); return; }
-  if (!dateV)                    { toast('Pick a date','error'); return; }
+  if (!catKey)               { toast('Select a category','error'); return; }
+  if (!desc)                 { toast('Enter a description','error'); return; }
+  if (amount === null || amount <= 0) { toast('Enter a valid amount greater than 0','error'); return; }
+  if (!dateV)                { toast('Pick a date','error'); return; }
   const dateObj = new Date(dateV+'T00:00:00');
   const ty = dateObj.getFullYear(), tm = dateObj.getMonth();
   if (ty<START_YEAR||ty>END_YEAR||(ty===START_YEAR&&tm<START_MONTH)||(ty===END_YEAR&&tm>END_MONTH)) {
@@ -987,8 +1057,8 @@ function openBucketModal() {
 function closeBucketModal() { document.getElementById('bucketModalBg').classList.remove('open'); }
 function saveBucketAmount() {
   const key = document.getElementById('bucketKey').value;
-  const amt = parseFloat(document.getElementById('bucketAmount').value);
-  if (isNaN(amt)||amt<0) { toast('Enter a valid amount','error'); return; }
+  const amt = validateAmount(document.getElementById('bucketAmount').value);
+  if (amt === null) { toast('Enter a valid amount','error'); return; }
   ensureMonth(state.currentYear,state.currentMonth).buckets[key] = amt;
   saveState(); closeBucketModal(); renderAll(); toast('Bucket updated','success');
 }
@@ -1144,6 +1214,45 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('txnType').addEventListener('change', updateCatDropdown);
   document.getElementById('txnCat').addEventListener('change', toggleParkedField);
 });
+
+/* ════════════════════════════════════════════════════════════
+   BACKUP / RESTORE
+════════════════════════════════════════════════════════════ */
+function exportBackup() {
+  const data = JSON.stringify(state, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = new Date().toISOString().slice(0,10);
+  a.href     = url;
+  a.download = `arthena-backup-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Backup downloaded', 'success');
+}
+
+function importBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (!parsed.months && !parsed.targets) {
+        toast('Invalid backup file', 'error'); return;
+      }
+      if (!confirm('This will replace ALL your current data with the backup. Are you sure?')) return;
+      applyParsedState(parsed);
+      saveState();
+      navigate(state.currentPage || 'dashboard');
+      toast('Backup restored successfully', 'success');
+    } catch {
+      toast('Could not read backup file', 'error');
+    }
+    event.target.value = ''; // reset file input
+  };
+  reader.readAsText(file);
+}
 
 /* ════════════════════════════════════════════════════════════
    THEME TOGGLE
@@ -1557,10 +1666,10 @@ function saveNwRow() {
   const m = state.nwViewMonth;
   const d = ensureNwMonth(y, m);
   const name   = document.getElementById('nwRowName').value.trim();
-  const amount = parseFloat(document.getElementById('nwRowAmount').value) || 0;
+  const amount = validateAmount(document.getElementById('nwRowAmount').value) || 0;
 
   if (_nwRowType === 'gold') {
-    const grams = parseFloat(document.getElementById('nwRowGrams').value) || 0;
+    const grams = validateAmount(document.getElementById('nwRowGrams').value) || 0;
     if (!grams && !amount) { toast('Enter grams or amount', 'error'); return; }
     d.gold.push({ name: name||'Gold', grams, amount });
   } else {
@@ -1592,8 +1701,8 @@ function editPriorInvest() {
   const current = state.nwPriorInvest || 0;
   const val = prompt(`Prior Investments (₹)\nTotal invested from earning start till May 2026\nCurrent: ${fmtINR(current)}\n\nEnter amount:`, current);
   if (val === null) return;
-  const parsed = parseFloat(String(val).replace(/,/g,''));
-  if (isNaN(parsed) || parsed < 0) { toast('Invalid amount', 'error'); return; }
+  const parsed = validateAmount(val);
+  if (parsed === null) { toast('Invalid amount — enter a positive number', 'error'); return; }
   state.nwPriorInvest = parsed;
   saveState();
   renderNetworthPage();
@@ -1605,8 +1714,8 @@ function editNwField(field) {
   const current = d[field] || 0;
   const val = prompt(`${NW_FIELD_LABELS[field]}\nCurrent: ${fmtINR(current)}\n\nEnter new amount:`, current);
   if (val === null) return;
-  const parsed = parseFloat(String(val).replace(/,/g,''));
-  if (isNaN(parsed) || parsed < 0) { toast('Invalid amount', 'error'); return; }
+  const parsed = validateAmount(val);
+  if (parsed === null) { toast('Invalid amount — enter a positive number', 'error'); return; }
   d[field] = parsed;
   saveState();
   renderNetworthPage();
@@ -1656,9 +1765,9 @@ function closeLoanModal() {
 
 function saveLoan() {
   const name       = document.getElementById('loanName').value.trim();
-  const principal  = parseFloat(document.getElementById('loanPrincipal').value) || 0;
-  const ratePA     = parseFloat(document.getElementById('loanRate').value) || 0;
-  const emi        = parseFloat(document.getElementById('loanEmi').value) || 0;
+  const principal  = validateAmount(document.getElementById('loanPrincipal').value) || 0;
+  const ratePA     = validateAmount(document.getElementById('loanRate').value) || 0;
+  const emi        = validateAmount(document.getElementById('loanEmi').value) || 0;
   const totalEmis  = parseInt(document.getElementById('loanTotalEmis').value) || 0;
   const startMonth = parseInt(document.getElementById('loanStartMonth').value);
   const startYear  = parseInt(document.getElementById('loanStartYear').value) || 2026;
