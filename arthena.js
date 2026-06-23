@@ -510,7 +510,8 @@ function renderTrendChart() {
   const ip = pts.map((p,i) => `${tx(i)},${ty(p.inc)}`).join(' ');
   const ep = pts.map((p,i) => `${tx(i)},${ty(p.exp)}`).join(' ');
   const lbs = pts.map((p,i) => p.label ? `<text x="${tx(i)}" y="${H+14}" font-size="7" fill="#8892a4" text-anchor="middle">${p.label}</text>` : '').join('');
-  document.getElementById('trendChart').innerHTML = `
+  const tcEl = document.getElementById('trendChart'); if (!tcEl) return;
+  tcEl.innerHTML = `
     <svg viewBox="0 0 ${W} ${H+18}" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
       <polyline fill="rgba(52,211,153,0.07)" stroke="none" points="${ip} ${tx(5)},${H+4} 0,${H+4}"/>
       <polyline fill="rgba(248,113,113,0.05)" stroke="none" points="${ep} ${tx(5)},${H+4} 0,${H+4}"/>
@@ -560,20 +561,20 @@ function renderPie() {
     segs = `<circle r="15.9" cx="18" cy="18" fill="none" stroke="#2e3248" stroke-width="3.8" stroke-dasharray="100 0"/>`;
     leg.push('<div style="color:var(--muted);font-size:11px;padding:8px 0">No expenses yet</div>');
   }
-  document.getElementById('pieChart').innerHTML  = `<svg width="90" height="90" viewBox="0 0 36 36">${segs}</svg>`;
-  document.getElementById('pieLegend').innerHTML = leg.join('');
+  const pcEl = document.getElementById('pieChart'); if (pcEl) pcEl.innerHTML = `<svg width="90" height="90" viewBox="0 0 36 36">${segs}</svg>`;
+  const plEl = document.getElementById('pieLegend'); if (plEl) plEl.innerHTML = leg.join('');
 }
 
 function renderAnnual() {
   const t = annualTotals(state.currentYear);
-  document.getElementById('annualIncome').textContent  = fmtINR(t.income);
-  document.getElementById('annualExpense').textContent = fmtINR(t.expense);
-  document.getElementById('annualSaving').textContent  = fmtINR(t.saving);
-  document.getElementById('annualCash').textContent    = fmtINR(t.cash);
+  const setT = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+  setT('annualIncome', fmtINR(t.income)); setT('annualExpense', fmtINR(t.expense));
+  setT('annualSaving', fmtINR(t.saving)); setT('annualCash', fmtINR(t.cash));
 }
 
 function renderInsGoals() {
-  document.getElementById('insGoals').innerHTML = INS_GOALS.map(g => {
+  const igEl = document.getElementById('insGoals'); if (!igEl) return;
+  igEl.innerHTML = INS_GOALS.map(g => {
     const target = getPoolAnnual(g.poolKey);
     const saved  = yearTotalForCat(g.poolKey);          // year-to-date, resets naturally each year
     const pct    = target > 0 ? Math.min((saved/target)*100, 100) : 0;
@@ -588,7 +589,8 @@ function renderInsGoals() {
 
 function renderBucketsWidget() {
   const d = ensureMonth(state.currentYear, state.currentMonth);
-  document.getElementById('bucketList').innerHTML =
+  const blEl = document.getElementById('bucketList'); if (!blEl) return;
+  blEl.innerHTML =
     `<div style="display:flex;gap:8px;font-size:11px;color:var(--muted);padding-bottom:6px;border-bottom:1px solid var(--border)">
       <span style="flex:1">Bucket</span><span style="width:80px">Target (₹)</span>
       <span style="width:64px">Saved (₹)</span><span style="flex:1">Progress</span>
@@ -608,7 +610,7 @@ function renderBucketsWidget() {
 
 function renderDashboardTxns() {
   const txns = ensureMonth(state.currentYear, state.currentMonth).transactions;
-  document.getElementById('txnHeader').textContent = `Recent Transactions (${monthLabel(state.currentYear, state.currentMonth)})`;
+  const thEl = document.getElementById('txnHeader'); if (thEl) thEl.textContent = `Recent Transactions (${monthLabel(state.currentYear, state.currentMonth)})`;
   renderTxnList('txnList', txns.slice(-8), false);
 }
 
@@ -850,7 +852,8 @@ function renderSavingsPage()  { renderEditableSummary('savPageTable',  SAVINGS_C
 function renderInsfundPage()  { renderEditableSummary('insfPageTable', INSPOOL_CATS, 'insfPageTxns'); }
 
 function renderInsurancePage() {
-  document.getElementById('insPageGoals').innerHTML = INS_GOALS.map(g => {
+  const ipgEl = document.getElementById('insPageGoals'); if (!ipgEl) return;
+  ipgEl.innerHTML = INS_GOALS.map(g => {
     const target = getPoolAnnual(g.poolKey);
     const saved  = yearTotalForCat(g.poolKey);
     const pct    = target > 0 ? Math.min((saved/target)*100, 100) : 0;
@@ -886,7 +889,8 @@ function renderInsurancePage() {
 
 function renderBucketsPage() {
   const d = ensureMonth(state.currentYear, state.currentMonth);
-  document.getElementById('bucketsPageList').innerHTML = BUCKETS.map(b => {
+  const bplEl = document.getElementById('bucketsPageList'); if (!bplEl) return;
+  bplEl.innerHTML = BUCKETS.map(b => {
     const saved = d.buckets[b.key] || 0;
     const pct   = Math.min((saved/b.target)*100, 100);
     return `<div class="card" style="margin-bottom:14px">
