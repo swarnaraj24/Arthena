@@ -1373,12 +1373,9 @@ function ensureNwMonth(year, month) {
 
 /* ── Savings breakdown for Net Worth ────────────────────── */
 function calcInvestmentBreakdown(viewYear, viewMonth) {
-  // prior = manual entry (before Jun 2026) + all saving actuals BEFORE viewed month
-  // current = saving actuals for viewed month only
-  // total = prior + current
-  const startTotal   = 2026 * 12 + 5; // June 2026
-  const viewTotal    = viewYear * 12 + viewMonth;
-  const savingKeys   = new Set([...SAVINGS_CATS, ...INSPOOL_CATS].map(c => c.key));
+  const startTotal = 2026 * 12 + 5; // June 2026
+  const viewTotal  = viewYear * 12 + viewMonth;
+  const savingKeys = new Set([...SAVINGS_CATS, ...INSPOOL_CATS].map(c => c.key));
 
   let priorAutomatic = 0; // Jun 2026 up to but not including viewed month
   let currentMonth   = 0; // viewed month only
@@ -1390,7 +1387,7 @@ function calcInvestmentBreakdown(viewYear, viewMonth) {
     const mo = parseInt(parts[1]);
     if (isNaN(yr) || isNaN(mo)) return;
     const kTotal = yr * 12 + mo;
-    if (kTotal < startTotal) return; // before Jun 2026
+    if (kTotal < startTotal) return;
 
     const monthData = state.months[key];
     if (!monthData) return;
@@ -1411,12 +1408,12 @@ function calcInvestmentBreakdown(viewYear, viewMonth) {
     else if (kTotal === viewTotal) currentMonth = monthSum;
   });
 
-  const prior   = (state.nwPriorInvest || 0) + priorAutomatic;
-  const total   = prior + currentMonth;
+  // Prior = manual entry (pre-Jun 2026) + all auto actuals before viewed month
+  const prior = (state.nwPriorInvest || 0) + priorAutomatic;
+  const total = prior + currentMonth;
   return { prior, currentMonth, total };
 }
 
-// Keep backward compat — used in history render
 function calcSavingsFromInvestments() {
   const b = calcInvestmentBreakdown(state.nwViewYear, state.nwViewMonth);
   return b.total;
@@ -1558,19 +1555,20 @@ function renderNetworthPage() {
   });
   const savEl = document.getElementById('nwv-savings');
   if (savEl) savEl.textContent = fmtINR(invBreakdown.total);
-  const priorEl = document.getElementById('nwv-prior');
-  if (priorEl) priorEl.innerHTML = `${fmtINR(state.nwPriorInvest||0)} <span class="edit-hint">✎</span>`;
-  const invPriorEl = document.getElementById('nwv-inv-prior');
-  if (invPriorEl) invPriorEl.textContent = fmtINR(invBreakdown.prior - (state.nwPriorInvest||0));
-  const invCurEl = document.getElementById('nwv-inv-current');
-  if (invCurEl) invCurEl.textContent = fmtINR(invBreakdown.currentMonth);
 
-  // Update labels with month context
+  // Investments breakdown card
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const prevLabel = m > 0 ? `Auto · till ${MONTHS[m-1]} ${y}` : `Auto · till Dec ${y-1}`;
-  const curLabel  = `Auto · ${MONTHS[m]} ${y}`;
-  const lp = document.getElementById('nwInvPriorLabel'); if (lp) lp.textContent = prevLabel;
-  const lc = document.getElementById('nwInvCurLabel');  if (lc) lc.textContent = curLabel;
+  const prevMonthLabel = m > 0
+    ? `till ${MONTHS[m-1]} ${y}`
+    : `till Dec ${y-1}`;
+  const curMonthLabel = `${MONTHS[m]} ${y}`;
+
+  const lp = document.getElementById('nwInvPriorLabel');   if (lp) lp.textContent = prevMonthLabel;
+  const lc = document.getElementById('nwInvCurLabel');     if (lc) lc.textContent = curMonthLabel;
+  const ip = document.getElementById('nwv-inv-prior');     if (ip) ip.textContent = fmtINR(invBreakdown.prior);
+  const ic = document.getElementById('nwv-inv-current');   if (ic) ic.textContent = fmtINR(invBreakdown.currentMonth);
+  const it = document.getElementById('nwv-inv-total');     if (it) it.textContent = fmtINR(invBreakdown.total);
+  const pe = document.getElementById('nwPriorEditVal');    if (pe) pe.textContent = fmtINR(state.nwPriorInvest||0);
   const ccEl = document.getElementById('nwv-cc');
   if (ccEl) ccEl.innerHTML = `${fmtINR(d.cc||0)} <span class="edit-hint">✎</span>`;
 

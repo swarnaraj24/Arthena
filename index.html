@@ -352,19 +352,7 @@
 
           <!-- Savings from Investments (auto) -->
           <div class="nw-field">
-            <span class="nw-field-label">Prior Investments <span class="nw-loan-auto">till May 2026</span></span>
-            <span class="nw-field-value" onclick="editPriorInvest()" id="nwv-prior">₹0 <span class="edit-hint">✎</span></span>
-          </div>
-          <div class="nw-field">
-            <span class="nw-field-label">Investments <span class="nw-loan-auto" id="nwInvPriorLabel">Auto · before this month</span></span>
-            <span class="nw-field-value" id="nwv-inv-prior" style="cursor:default;">₹0</span>
-          </div>
-          <div class="nw-field">
-            <span class="nw-field-label">Investments <span class="nw-loan-auto" id="nwInvCurLabel">Auto · this month</span></span>
-            <span class="nw-field-value" id="nwv-inv-current" style="cursor:default;">₹0</span>
-          </div>
-          <div class="nw-field" style="border-top:1px solid var(--border);padding-top:10px;">
-            <span class="nw-field-label" style="font-weight:700;">Total Investments</span>
+            <span class="nw-field-label">Total Investments <span class="nw-loan-auto">Auto</span></span>
             <span class="nw-field-value" id="nwv-savings" style="cursor:default;color:var(--accent);">₹0</span>
           </div>
 
@@ -436,6 +424,28 @@
           </div>
         </div>
 
+      </div>
+
+      <!-- Investments Breakdown Card -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header">
+          <div class="card-title">Investments Breakdown</div>
+          <div style="font-size:11px;color:var(--muted);">
+            Opening: <span id="nwPriorEditVal" style="cursor:pointer;color:var(--accent);text-decoration:underline dotted;" onclick="editPriorInvest()">₹0</span>
+          </div>
+        </div>
+        <div class="nw-field">
+          <span class="nw-field-label">Prior <span class="nw-loan-auto" id="nwInvPriorLabel">till May 2026</span></span>
+          <span class="nw-field-value" id="nwv-inv-prior" style="cursor:default;">₹0</span>
+        </div>
+        <div class="nw-field">
+          <span class="nw-field-label">Current <span class="nw-loan-auto" id="nwInvCurLabel">Jun 2026</span></span>
+          <span class="nw-field-value" id="nwv-inv-current" style="cursor:default;">₹0</span>
+        </div>
+        <div class="nw-total-row">
+          <span>Total Investments</span>
+          <span class="nw-total-assets" id="nwv-inv-total">₹0</span>
+        </div>
       </div>
 
       <!-- Net Worth History -->
