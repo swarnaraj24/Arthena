@@ -314,88 +314,38 @@
         <div class="nw-hero-sub" id="nwHeroSub">Assets minus Liabilities</div>
         <div style="font-size:11px;color:var(--muted);margin-top:10px;display:flex;align-items:center;justify-content:center;gap:12px;">
           As of
-          <select id="nwMonthSel" onchange="renderNetworthPage()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;"></select>
-          <select id="nwYearSel" onchange="renderNetworthPage()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;margin-left:4px;"></select>
+          <select id="nwMonthSel" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;"></select>
+          <select id="nwYearSel" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;margin-left:4px;"></select>
           <button class="nw-add-btn" onclick="copyFromPrevMonth()" title="Copy all values from previous month">↩ Copy prev month</button>
         </div>
       </div>
 
+      <!-- Row 1: Assets + Liabilities -->
       <div class="nw-grid">
 
         <!-- ASSETS -->
         <div class="card">
           <div class="nw-section-title">Assets</div>
-
-          <!-- Equity -->
           <div class="nw-field">
             <span class="nw-field-label">Equity Portfolio</span>
             <span class="nw-field-value" onclick="editNwField('equity')" id="nwv-equity">₹0 <span class="edit-hint">✎</span></span>
           </div>
-
-          <!-- EPF -->
           <div class="nw-field">
             <span class="nw-field-label">EPF Balance</span>
             <span class="nw-field-value" onclick="editNwField('epf')" id="nwv-epf">₹0 <span class="edit-hint">✎</span></span>
           </div>
-
-          <!-- Bank -->
           <div class="nw-field">
             <span class="nw-field-label">Bank Balance</span>
             <span class="nw-field-value" onclick="editNwField('bank')" id="nwv-bank">₹0 <span class="edit-hint">✎</span></span>
           </div>
-
-          <!-- Cash -->
           <div class="nw-field">
             <span class="nw-field-label">Cash in Hand</span>
             <span class="nw-field-value" onclick="editNwField('cash')" id="nwv-cash">₹0 <span class="edit-hint">✎</span></span>
           </div>
-
-          <!-- Savings from Investments (auto) -->
           <div class="nw-field">
             <span class="nw-field-label">Total Investments <span class="nw-loan-auto">Auto</span></span>
             <span class="nw-field-value" id="nwv-savings" style="cursor:default;color:var(--accent);">₹0</span>
           </div>
-
-          <!-- Gold rows -->
-          <div class="nw-subsection">
-            <div class="nw-subsection-header">
-              <span>Gold</span>
-              <span id="nwGoldRate" style="font-size:10px;color:var(--muted)">Fetching rate...</span>
-              <button class="nw-add-btn" onclick="addNwRow('gold')">+ Add</button>
-            </div>
-            <div id="nwGoldRows"></div>
-            <div class="nw-field" style="padding-top:6px">
-              <span style="font-size:12px;color:var(--muted)">Total Gold</span>
-              <span style="font-size:12px;font-weight:600;color:var(--accent)" id="nwGoldTotal">₹0</span>
-            </div>
-          </div>
-
-          <!-- FD rows -->
-          <div class="nw-subsection">
-            <div class="nw-subsection-header">
-              <span>Fixed Deposits</span>
-              <button class="nw-add-btn" onclick="addNwRow('fd')">+ Add</button>
-            </div>
-            <div id="nwFdRows"></div>
-            <div class="nw-field" style="padding-top:6px">
-              <span style="font-size:12px;color:var(--muted)">Total FD</span>
-              <span style="font-size:12px;font-weight:600;color:var(--accent)" id="nwFdTotal">₹0</span>
-            </div>
-          </div>
-
-          <!-- RD rows -->
-          <div class="nw-subsection">
-            <div class="nw-subsection-header">
-              <span>Recurring Deposits</span>
-              <button class="nw-add-btn" onclick="addNwRow('rd')">+ Add</button>
-            </div>
-            <div id="nwRdRows"></div>
-            <div class="nw-field" style="padding-top:6px">
-              <span style="font-size:12px;color:var(--muted)">Total RD</span>
-              <span style="font-size:12px;font-weight:600;color:var(--accent)" id="nwRdTotal">₹0</span>
-            </div>
-          </div>
-
           <div class="nw-total-row">
             <span>Total Assets</span>
             <span class="nw-total-assets" id="nwTotalAssets">₹0</span>
@@ -405,20 +355,15 @@
         <!-- LIABILITIES -->
         <div class="card">
           <div class="nw-section-title">Liabilities</div>
-
-          <!-- Dynamic loans list -->
           <div id="nwLoansList"></div>
-
           <div class="nw-field">
             <span class="nw-field-label">Credit Card Outstanding</span>
             <span class="nw-field-value" onclick="editNwField('cc')" id="nwv-cc">₹0 <span class="edit-hint">✎</span></span>
           </div>
-
           <div class="nw-total-row">
             <span>Total Liabilities</span>
             <span class="nw-total-liabilities" id="nwTotalLiabilities">₹0</span>
           </div>
-
           <div style="margin-top:12px;">
             <button class="nw-add-btn" style="width:100%;" onclick="openLoanModal()">+ Add Loan</button>
           </div>
@@ -426,29 +371,72 @@
 
       </div>
 
-      <!-- Investments Breakdown Card -->
-      <div class="card" style="margin-bottom:16px;">
-        <div class="card-header">
-          <div class="card-title">Investments Breakdown</div>
-          <div style="font-size:11px;color:var(--muted);">
-            Opening: <span id="nwPriorEditVal" style="cursor:pointer;color:var(--accent);text-decoration:underline dotted;" onclick="editPriorInvest()">₹0</span>
+      <!-- Row 2: Investments | Gold | FD | RD -->
+      <div class="nw-grid4">
+
+        <!-- Investments Breakdown -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title" style="font-size:13px;">Investments</div>
+            <span style="font-size:10px;color:var(--muted);">Opening: <span id="nwPriorEditVal" style="cursor:pointer;color:var(--accent);text-decoration:underline dotted;" onclick="editPriorInvest()">₹0</span></span>
+          </div>
+          <div class="nw-field">
+            <span class="nw-field-label" style="font-size:11px;">Prior <span class="nw-loan-auto" id="nwInvPriorLabel">till May 2026</span></span>
+            <span class="nw-field-value" onclick="editInvPrior()" id="nwv-inv-prior" style="font-size:12px;">₹0 <span class="edit-hint">✎</span></span>
+          </div>
+          <div class="nw-field">
+            <span class="nw-field-label" style="font-size:11px;">Current <span class="nw-loan-auto" id="nwInvCurLabel">Jun 2026</span></span>
+            <span class="nw-field-value" id="nwv-inv-current" style="cursor:default;font-size:12px;">₹0</span>
+          </div>
+          <div class="nw-total-row" style="font-size:12px;">
+            <span>Total</span>
+            <span class="nw-total-assets" id="nwv-inv-total">₹0</span>
           </div>
         </div>
-        <div class="nw-field">
-          <span class="nw-field-label">Prior <span class="nw-loan-auto" id="nwInvPriorLabel">till May 2026</span></span>
-          <span class="nw-field-value" id="nwv-inv-prior" style="cursor:default;">₹0</span>
+
+        <!-- Gold -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title" style="font-size:13px;">Gold</div>
+            <span id="nwGoldRate" style="font-size:10px;color:var(--muted);">Fetching...</span>
+          </div>
+          <button class="nw-add-btn" style="width:100%;margin-bottom:10px;" onclick="addNwRow('gold')">+ Add Entry</button>
+          <div id="nwGoldRows"></div>
+          <div class="nw-total-row" style="font-size:12px;">
+            <span>Total Gold</span>
+            <span class="nw-total-assets" id="nwGoldTotal">₹0</span>
+          </div>
         </div>
-        <div class="nw-field">
-          <span class="nw-field-label">Current <span class="nw-loan-auto" id="nwInvCurLabel">Jun 2026</span></span>
-          <span class="nw-field-value" id="nwv-inv-current" style="cursor:default;">₹0</span>
+
+        <!-- FD -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title" style="font-size:13px;">Fixed Deposits</div>
+            <button class="nw-add-btn" onclick="addNwRow('fd')">+ Add</button>
+          </div>
+          <div id="nwFdRows"></div>
+          <div class="nw-total-row" style="font-size:12px;">
+            <span>Total FD</span>
+            <span class="nw-total-assets" id="nwFdTotal">₹0</span>
+          </div>
         </div>
-        <div class="nw-total-row">
-          <span>Total Investments</span>
-          <span class="nw-total-assets" id="nwv-inv-total">₹0</span>
+
+        <!-- RD -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title" style="font-size:13px;">Recurring Deposits</div>
+            <button class="nw-add-btn" onclick="addNwRow('rd')">+ Add</button>
+          </div>
+          <div id="nwRdRows"></div>
+          <div class="nw-total-row" style="font-size:12px;">
+            <span>Total RD</span>
+            <span class="nw-total-assets" id="nwRdTotal">₹0</span>
+          </div>
         </div>
+
       </div>
 
-      <!-- Net Worth History -->
+      <!-- Net Worth Trend + History -->
       <div class="card">
         <div class="card-header">
           <div class="card-title">Net Worth Trend</div>

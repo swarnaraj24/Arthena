@@ -1408,10 +1408,12 @@ function calcInvestmentBreakdown(viewYear, viewMonth) {
     else if (kTotal === viewTotal) currentMonth = monthSum;
   });
 
-  // Prior = manual entry (pre-Jun 2026) + all auto actuals before viewed month
-  const prior = (state.nwPriorInvest || 0) + priorAutomatic;
+  // Check for manual override on prior
+  const k = `${viewYear}-${String(viewMonth).padStart(2,'0')}`;
+  const override = state.networth?.[k]?.invPriorOverride;
+  const prior = override !== undefined ? override : (state.nwPriorInvest || 0) + priorAutomatic;
   const total = prior + currentMonth;
-  return { prior, currentMonth, total };
+  return { prior, currentMonth, total, isOverridden: override !== undefined };
 }
 
 function calcSavingsFromInvestments() {
@@ -1565,7 +1567,8 @@ function renderNetworthPage() {
 
   const lp = document.getElementById('nwInvPriorLabel');   if (lp) lp.textContent = prevMonthLabel;
   const lc = document.getElementById('nwInvCurLabel');     if (lc) lc.textContent = curMonthLabel;
-  const ip = document.getElementById('nwv-inv-prior');     if (ip) ip.textContent = fmtINR(invBreakdown.prior);
+  const ip = document.getElementById('nwv-inv-prior');
+  if (ip) ip.innerHTML = `${fmtINR(invBreakdown.prior)}${invBreakdown.isOverridden ? ' <span class="nw-loan-auto" style="color:var(--orange);">edited</span>' : ''} <span class="edit-hint">✎</span>`;
   const ic = document.getElementById('nwv-inv-current');   if (ic) ic.textContent = fmtINR(invBreakdown.currentMonth);
   const it = document.getElementById('nwv-inv-total');     if (it) it.textContent = fmtINR(invBreakdown.total);
   const pe = document.getElementById('nwPriorEditVal');    if (pe) pe.textContent = fmtINR(state.nwPriorInvest||0);
@@ -1743,14 +1746,35 @@ const NW_FIELD_LABELS = {
 
 function editPriorInvest() {
   const current = state.nwPriorInvest || 0;
-  const val = prompt(`Prior Investments (₹)\nTotal invested from earning start till May 2026\nCurrent: ${fmtINR(current)}\n\nEnter amount:`, current);
+  const val = prompt(`Opening Investment Balance (₹)\nTotal invested from earning start till May 2026\nCurrent: ${fmtINR(current)}\n\nEnter amount:`, current);
   if (val === null) return;
   const parsed = validateAmount(val);
   if (parsed === null) { toast('Invalid amount — enter a positive number', 'error'); return; }
   state.nwPriorInvest = parsed;
   saveState();
   renderNetworthPage();
-  toast('Prior investments updated', 'success');
+  toast('Opening balance updated', 'success');
+}
+
+function editInvPrior() {
+  // Allow manual override of the auto-calculated prior for current month
+  const breakdown = calcInvestmentBreakdown(state.nwViewYear, state.nwViewMonth);
+  const current = breakdown.prior;
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const label = state.nwViewMonth > 0
+    ? `till ${MONTHS[state.nwViewMonth-1]} ${state.nwViewYear}`
+    : `till Dec ${state.nwViewYear-1}`;
+  const val = prompt(`Prior Investments (${label})\nAuto-calculated: ${fmtINR(current)}\n\nOverride amount (or leave blank to use auto):`, current);
+  if (val === null || val.trim() === '') return;
+  const parsed = validateAmount(val);
+  if (parsed === null) { toast('Invalid amount', 'error'); return; }
+  // Store override in networth month data
+  const k = `${state.nwViewYear}-${String(state.nwViewMonth).padStart(2,'0')}`;
+  if (!state.networth[k]) state.networth[k] = { equity:0, epf:0, bank:0, cash:0, cc:0, gold:[], fd:[], rd:[] };
+  state.networth[k].invPriorOverride = parsed;
+  saveState();
+  renderNetworthPage();
+  toast('Prior investments overridden', 'success');
 }
 
 function editNwField(field) {

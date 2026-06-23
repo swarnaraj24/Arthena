@@ -466,7 +466,7 @@ select:focus { border-color: var(--accent); }
   div[style*="padding:16px 24px"] { padding: 12px 14px 0 !important; }
 
   /* All grids → single column */
-  .grid3, .grid4, .grid3b, .nw-grid { grid-template-columns: 1fr; gap: 12px; }
+  .grid3, .grid4, .grid3b, .nw-grid, .nw-grid4 { grid-template-columns: 1fr; gap: 12px; }
 
   /* Tables: shrink font, allow horizontal scroll */
   .data-table { font-size: 12px; }
@@ -704,6 +704,12 @@ body.light-theme .data-table tr:hover td { background: rgba(139,105,20,0.05); }
 .nw-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.nw-grid4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 16px;
 }
