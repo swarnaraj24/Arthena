@@ -13,7 +13,11 @@ const START_YEAR  = 2026;
 const START_MONTH = 5;
 const END_YEAR    = 2035;
 const END_MONTH   = 11;
-const LS_KEY      = 'arthena_v5';
+const LS_KEY       = 'arthena_v5';
+const SB_URL       = 'https://qcwangaymlurglvamjsq.supabase.co';
+const SB_ANON_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjd2FuZ2F5bWx1cmdsdmFtanNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNzkyMTEsImV4cCI6MjA5Nzc1NTIxMX0.Q8JeHm0H4ZqdO7sN48DxPQS8kTpyX-LS7sjs7n8dIbU';
+const SB_HEADERS   = { 'Content-Type': 'application/json', 'apikey': SB_ANON_KEY, 'Authorization': `Bearer ${SB_ANON_KEY}` };
+const SB_ROW_ID    = 'swarnaraj';
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 /* ── DEFAULT TARGETS (used only when no custom target saved) ─── */
@@ -154,63 +158,87 @@ let state = {
 };
 
 /* ── STORAGE ─────────────────────────────────────────────────── */
-function saveState() { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+function saveState() {
+  const json = JSON.stringify(state);
+  localStorage.setItem(LS_KEY, json);
+  // Async write to Supabase — fire and forget, no UI block
+  fetch(`${SB_URL}/rest/v1/arthena_state`, {
+    method: 'POST',
+    headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
+    body: JSON.stringify({ id: SB_ROW_ID, data: state, updated_at: new Date().toISOString() })
+  }).catch(() => {}); // silent fail — localStorage is the safety net
+}
+
+async function syncFromSupabase() {
+  try {
+    const res = await fetch(
+      `${SB_URL}/rest/v1/arthena_state?id=eq.${SB_ROW_ID}&select=data,updated_at`,
+      { headers: SB_HEADERS }
+    );
+    if (!res.ok) return false;
+    const rows = await res.json();
+    if (!rows || rows.length === 0) return false;
+    const remote = rows[0].data;
+    if (!remote) return false;
+
+    // Compare timestamps — use whichever is newer
+    const localRaw  = localStorage.getItem(LS_KEY);
+    const localData = localRaw ? JSON.parse(localRaw) : null;
+    const remoteTime = new Date(rows[0].updated_at).getTime();
+    const localTime  = localData?._savedAt ? new Date(localData._savedAt).getTime() : 0;
+
+    if (remoteTime >= localTime) {
+      // Remote is newer — apply it
+      applyParsedState(remote);
+      localStorage.setItem(LS_KEY, JSON.stringify(state));
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+function applyParsedState(parsed) {
+  state.targets       = { ...DEFAULT_TARGETS, ...(parsed.targets || {}) };
+  state.poolAnnual    = { ...DEFAULT_POOL_ANNUAL, ...(parsed.poolAnnual || {}) };
+  state.parked        = parsed.parked        || {};
+  state.months        = parsed.months        || {};
+  state.currentYear   = parsed.currentYear   || 2026;
+  state.currentMonth  = parsed.currentMonth  || 5;
+  state.currentPage   = parsed.currentPage   || 'dashboard';
+  state.theme         = parsed.theme         || 'dark';
+  state.networth      = parsed.networth      || {};
+  state.nwViewYear    = parsed.nwViewYear    || 2026;
+  state.nwViewMonth   = parsed.nwViewMonth   || 5;
+  state.nwPriorInvest = parsed.nwPriorInvest || 0;
+  state.loans         = parsed.loans         || [
+    { id:'pl1', name:'Personal Loan', principal:400000, ratePA:11.64, emi:13271, startYear:2026, startMonth:5, totalEmis:36 }
+  ];
+  if (state.targets.lic === 874) state.targets.lic = LIC_MONTHLY;
+  if (!state.parked.mfsip) state.parked.mfsip = 'Nifty 50 Index Fund';
+  if (!parsed.txnBackfillDone) {
+    let backfilled = 0;
+    Object.values(state.months).forEach(month => {
+      if (!month.transactions) return;
+      month.transactions.forEach(t => {
+        if (!month.actuals) month.actuals = {};
+        month.actuals[t.catKey] = (month.actuals[t.catKey] || 0) + t.amount;
+        backfilled++;
+      });
+    });
+    state.txnBackfillDone = true;
+    if (backfilled > 0) console.info(`arthena: backfilled ${backfilled} transaction(s) into actuals`);
+  } else {
+    state.txnBackfillDone = true;
+  }
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Deep merge to preserve defaults for new keys
-      state.targets      = { ...DEFAULT_TARGETS, ...(parsed.targets || {}) };
-      state.poolAnnual   = { ...DEFAULT_POOL_ANNUAL, ...(parsed.poolAnnual || {}) };
-      state.parked       = parsed.parked       || {};
-      state.months       = parsed.months       || {};
-      state.currentYear  = parsed.currentYear  || 2026;
-      state.currentMonth = parsed.currentMonth || 5;
-      state.currentPage  = parsed.currentPage  || 'dashboard';
-      state.theme        = parsed.theme        || 'dark';
-      state.networth     = parsed.networth     || {};
-      state.nwViewYear   = parsed.nwViewYear   || 2026;
-      state.nwViewMonth  = parsed.nwViewMonth  || 5;
-      state.nwPriorInvest = parsed.nwPriorInvest || 0;
-      state.loans        = parsed.loans        || [
-        { id:'pl1', name:'Personal Loan', principal:400000, ratePA:11.64, emi:13271, startYear:2026, startMonth:5, totalEmis:36 }
-      ];
-
-      // ── ONE-TIME MIGRATION: old flat LIC target (₹874/mo) → new
-      // quarterly auto-split (₹788/mo). Only overwrite if it's still
-      // sitting at the old default — if the user already customised
-      // LIC's target by hand, leave their value alone.
-      if (state.targets.lic === 874) state.targets.lic = LIC_MONTHLY;
-
-      // Pre-fill MF SIP's "Parked In" note if the user hasn't set one yet
-      if (!state.parked.mfsip) state.parked.mfsip = 'Nifty 50 Index Fund';
-
-      // ── ONE-TIME MIGRATION: backfill actuals from logged transactions ──
-      // saveTransaction() used to log entries to the transaction list
-      // WITHOUT adding them into actuals — so totals (dashboard, pie
-      // chart, editable summary, everything) silently ignored anything
-      // entered via "+ Add" instead of by clicking a cell directly.
-      // Safe to backfill unconditionally: before this fix, NOTHING ever
-      // wrote a transaction-log entry AND touched actuals for the same
-      // amount, so there is no double-counting risk. Runs exactly once,
-      // guarded by parsed.txnBackfillDone, then persists the flag.
-      if (!parsed.txnBackfillDone) {
-        let backfilled = 0;
-        Object.values(state.months).forEach(month => {
-          if (!month.transactions) return;
-          month.transactions.forEach(t => {
-            if (!month.actuals) month.actuals = {};
-            month.actuals[t.catKey] = (month.actuals[t.catKey] || 0) + t.amount;
-            backfilled++;
-          });
-        });
-        state.txnBackfillDone = true;
-        saveState();
-        if (backfilled > 0) console.info(`arthena: backfilled ${backfilled} transaction(s) into actuals (one-time fix)`);
-      } else {
-        state.txnBackfillDone = true;
-      }
+      applyParsedState(parsed);
     }
   } catch(e) { console.warn('arthena: load failed', e); }
 }
@@ -1010,8 +1038,19 @@ function renderMonthlyTargets() {
 }
 
 
-document.addEventListener('DOMContentLoaded', () => {
-  loadState();
+document.addEventListener('DOMContentLoaded', async () => {
+  loadState(); // load from localStorage immediately so UI is not blank
+  applyTheme(state.theme);
+  navigate(state.currentPage || 'dashboard');
+
+  // Then try to sync from Supabase in background
+  // If remote is newer, re-render with synced data
+  const synced = await syncFromSupabase();
+  if (synced) {
+    applyTheme(state.theme);
+    renderAll();
+    toast('Synced from cloud', 'success');
+  }
   buildSelectors();
   ensureMonth(state.currentYear, state.currentMonth);
   document.querySelectorAll('.nav-item[data-page]').forEach(n => {
@@ -1027,8 +1066,6 @@ document.addEventListener('DOMContentLoaded', () => {
   bindBgClose('loanModalBg',    closeLoanModal);
   document.getElementById('txnType').addEventListener('change', updateCatDropdown);
   document.getElementById('txnCat').addEventListener('change', toggleParkedField);
-  applyTheme(state.theme);
-  navigate(state.currentPage || 'dashboard');
 });
 
 /* ════════════════════════════════════════════════════════════
