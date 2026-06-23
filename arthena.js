@@ -440,6 +440,12 @@ function navigate(page) {
   } else {
     document.body.classList.remove('page-networth');
   }
+  // Show Add Transaction only on pages where it makes sense
+  const btnAdd = document.getElementById('btnAddTxn');
+  if (btnAdd) {
+    const hideOn = ['dashboard', 'networth', 'insurance', 'buckets'];
+    btnAdd.style.display = hideOn.includes(page) ? 'none' : '';
+  }
   renderAll();
 }
 
