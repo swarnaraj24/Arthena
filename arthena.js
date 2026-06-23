@@ -1048,9 +1048,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   const synced = await syncFromSupabase();
   if (synced) {
     applyTheme(state.theme);
-    renderAll();
+    navigate(state.currentPage || 'dashboard');
     toast('Synced from cloud', 'success');
   }
+
+  // Poll Supabase every 30 seconds for cross-device sync
+  setInterval(async () => {
+    const updated = await syncFromSupabase();
+    if (updated) {
+      applyTheme(state.theme);
+      navigate(state.currentPage || 'dashboard');
+      toast('Synced from cloud', 'success');
+    }
+  }, 30000);
   buildSelectors();
   ensureMonth(state.currentYear, state.currentMonth);
   document.querySelectorAll('.nav-item[data-page]').forEach(n => {

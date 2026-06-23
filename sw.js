@@ -1,22 +1,29 @@
-const CACHE_NAME = 'arthena-v4';
-const ASSETS = [
-  '/',
-  '/index.html',
-  '/arthena.js',
-  '/arthena.css',
+const CACHE_NAME = 'arthena-v5';
+
+// Only cache static assets that never change
+// arthena.js and arthena.css are NOT cached — always fetch fresh
+// This ensures cross-device sync works without hard refresh
+const STATIC_ASSETS = [
   '/icon-192.png',
-  '/icon-512.png'
+  '/icon-512.png',
+  '/logo.png',
+  '/manifest.json'
 ];
 
-// Install: cache all core assets
+// JS/CSS that must always be fresh
+const NEVER_CACHE = [
+  '/arthena.js',
+  '/arthena.css',
+  '/index.html'
+];
+
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   );
   self.skipWaiting();
 });
 
-// Activate: clean up old caches
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
@@ -26,26 +33,35 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// Fetch: serve from cache first, fall back to network
 self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+
+  // Never cache: JS, CSS, HTML — always fetch from network
+  if (NEVER_CACHE.some(p => url.pathname === p)) {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  // Never cache Supabase API calls
+  if (url.hostname.includes('supabase.co')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+
+  // Cache-first for static assets (icons, manifest)
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(response => {
-        // Cache successful GET responses for same-origin and CDN assets
-        if (
-          response && response.status === 200 &&
-          e.request.method === 'GET'
-        ) {
+        if (response && response.status === 200 && e.request.method === 'GET') {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
         }
         return response;
       }).catch(() => {
-        // Offline fallback for navigation requests
-        if (e.request.mode === 'navigate') {
-          return caches.match('/index.html');
-        }
+        if (e.request.mode === 'navigate') return caches.match('/index.html');
       });
     })
   );
