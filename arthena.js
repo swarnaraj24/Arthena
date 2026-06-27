@@ -155,6 +155,7 @@ let state = {
   loans:        [
     { id:'pl1', name:'Personal Loan', principal:400000, ratePA:11.64, emi:13271, startYear:2026, startMonth:5, totalEmis:36 }
   ],
+  goldEntries:  [], // global ledger: [{ date:'2026-06-01', grams:1, name:'Gold' }, ...]
 };
 
 /* ── STORAGE ─────────────────────────────────────────────────── */
@@ -275,6 +276,28 @@ function applyParsedState(parsed) {
   state.loans         = parsed.loans         || [
     { id:'pl1', name:'Personal Loan', principal:400000, ratePA:11.64, emi:13271, startYear:2026, startMonth:5, totalEmis:36 }
   ];
+
+  // Migrate old per-period gold entries into global goldEntries ledger
+  if (parsed.goldEntries && Array.isArray(parsed.goldEntries)) {
+    state.goldEntries = parsed.goldEntries;
+  } else {
+    // First run after migration: collect gold from old networth[k].gold arrays
+    state.goldEntries = [];
+    Object.keys(state.networth).forEach(k => {
+      const d = state.networth[k];
+      if (Array.isArray(d.gold) && d.gold.length > 0) {
+        d.gold.forEach(g => {
+          const [yr, mo] = k.split('-').map(Number);
+          // Use 1st of that month as fallback date
+          const mm = String(mo + 1).padStart(2, '0');
+          const date = `${yr}-${mm}-01`;
+          state.goldEntries.push({ date, grams: g.grams || 0, name: g.name || 'Gold', amount: g.amount || 0 });
+        });
+        d.gold = []; // clear old location
+      }
+    });
+  }
+
   if (state.targets.lic === 874) state.targets.lic = LIC_MONTHLY;
   if (!state.parked.mfsip) state.parked.mfsip = 'Nifty 50 Index Fund';
   if (!parsed.txnBackfillDone) {
@@ -1504,9 +1527,14 @@ function renderNetworthPage() {
   const invBreakdown = calcInvestmentBreakdown(y, m);
   const savingsAuto  = invBreakdown.total;
 
-  // Gold
-  const goldTotal = d.gold.reduce((sum, g) => {
-    return sum + (nwGoldRatePerGram > 0 && g.grams ? g.grams * nwGoldRatePerGram : (g.amount || 0));
+  // Gold — cumulative up to current period from global ledger
+  const periodKey = `${y}-${String(m + 1).padStart(2, '0')}`; // e.g. '2026-06'
+  const goldTotal = (state.goldEntries || []).reduce((sum, g) => {
+    const entryMonth = g.date ? g.date.substring(0, 7) : null; // '2026-06'
+    if (!entryMonth || entryMonth <= periodKey) {
+      return sum + (nwGoldRatePerGram > 0 && g.grams ? g.grams * nwGoldRatePerGram : (g.amount || 0));
+    }
+    return sum;
   }, 0);
   const fdTotal = d.fd.reduce((s,r) => s + (r.amount||0), 0);
   const rdTotal = d.rd.reduce((s,r) => s + (r.amount||0), 0);
@@ -1580,7 +1608,7 @@ function renderNetworthPage() {
   if (rateEl) rateEl.textContent = nwGoldRatePerGram > 0 ? `24K: ${fmtINR(nwGoldRatePerGram)}/g` : 'Rate unavailable';
 
   // Rows
-  renderNwRows('nwGoldRows', d.gold, 'gold');
+  renderGoldRows(y, m);
   renderNwRows('nwFdRows',   d.fd,   'fd');
   renderNwRows('nwRdRows',   d.rd,   'rd');
   el('nwGoldTotal') && (el('nwGoldTotal').textContent = fmtINR(goldTotal));
@@ -1622,7 +1650,126 @@ function renderNwRows(containerId, rows, type) {
   }).join('');
 }
 
-/* ── History ────────────────────────────────────────────── */
+/* ── Gold Rows — grouped by month, collapsible ──────────── */
+function renderGoldRows(viewYear, viewMonth) {
+  const container = document.getElementById('nwGoldRows');
+  if (!container) return;
+
+  const entries = state.goldEntries || [];
+  if (entries.length === 0) {
+    container.innerHTML = `<div style="font-size:11px;color:var(--muted);padding:4px 0;">No entries yet.</div>`;
+    return;
+  }
+
+  const periodKey = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`; // e.g. '2026-06'
+
+  // Group all entries by month key
+  const grouped = {};
+  entries.forEach((g, idx) => {
+    const mk = g.date ? g.date.substring(0, 7) : periodKey;
+    if (!grouped[mk]) grouped[mk] = [];
+    grouped[mk].push({ ...g, _idx: idx });
+  });
+
+  // Sort month keys descending (newest first), but only show <= periodKey
+  const monthKeys = Object.keys(grouped)
+    .filter(mk => mk <= periodKey)
+    .sort((a, b) => b.localeCompare(a));
+
+  if (monthKeys.length === 0) {
+    container.innerHTML = `<div style="font-size:11px;color:var(--muted);padding:4px 0;">No entries yet.</div>`;
+    return;
+  }
+
+  const currentMonthKey = monthKeys[0]; // newest visible = current period or last with entries
+  const historyKeys     = monthKeys.slice(1);
+
+  function monthGroupHTML(mk, entries, isHistory) {
+    const totalGrams = entries.reduce((s, g) => s + (g.grams || 0), 0);
+    const totalVal   = nwGoldRatePerGram > 0
+      ? fmtINR(totalGrams * nwGoldRatePerGram)
+      : fmtINR(entries.reduce((s, g) => s + (g.amount || 0), 0));
+    const [yr, moStr] = mk.split('-');
+    const moIdx = parseInt(moStr, 10) - 1;
+    const label = `${MONTH_NAMES[moIdx]} ${yr}`;
+    const groupId = `gold-group-${mk.replace('-', '')}`;
+
+    const rowsHTML = entries.map(g => {
+      const grams = g.grams || 0;
+      const val   = nwGoldRatePerGram > 0 ? fmtINR(grams * nwGoldRatePerGram) : (g.amount ? fmtINR(g.amount) : '—');
+      const dateLabel = g.date ? g.date : mk + '-01';
+      return `
+        <div class="nw-row-item" style="padding-left:12px;font-size:11px;">
+          <span class="nw-row-label" style="color:var(--muted);">${dateLabel}</span>
+          <span class="nw-row-val">${grams}g = ${val}</span>
+          <button class="nw-row-del" onclick="deleteGoldEntry(${g._idx})" title="Remove">✕</button>
+        </div>`;
+    }).join('');
+
+    return `
+      <div style="margin-bottom:6px;">
+        <div class="nw-row-item" style="cursor:pointer;" onclick="toggleGoldGroup('${groupId}')">
+          <span class="nw-row-label" style="font-weight:600;">${label}</span>
+          <span class="nw-row-val">${totalGrams}g = ${totalVal}</span>
+          <span id="${groupId}-arrow" style="font-size:10px;color:var(--muted);margin-left:6px;">${isHistory ? '▶' : '▼'}</span>
+        </div>
+        <div id="${groupId}" style="display:${isHistory ? 'none' : 'block'};">
+          ${rowsHTML}
+        </div>
+      </div>`;
+  }
+
+  let html = monthGroupHTML(currentMonthKey, grouped[currentMonthKey], false);
+
+  if (historyKeys.length > 0) {
+    const historyToggleId = 'goldHistoryToggle';
+    const historyId       = 'goldHistoryBlock';
+    html += `
+      <div style="margin-top:4px;">
+        <button class="nw-add-btn" style="width:100%;font-size:10px;padding:4px 0;" onclick="toggleGoldHistory()">
+          <span id="${historyToggleId}">▶ Show history (${historyKeys.length} month${historyKeys.length>1?'s':''})</span>
+        </button>
+        <div id="${historyId}" style="display:none;margin-top:6px;">
+          ${historyKeys.map(mk => monthGroupHTML(mk, grouped[mk], true)).join('')}
+        </div>
+      </div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+function toggleGoldGroup(groupId) {
+  const block = document.getElementById(groupId);
+  const arrow = document.getElementById(groupId + '-arrow');
+  if (!block) return;
+  const isHidden = block.style.display === 'none';
+  block.style.display = isHidden ? 'block' : 'none';
+  if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
+}
+
+function toggleGoldHistory() {
+  const block   = document.getElementById('goldHistoryBlock');
+  const toggleEl = document.getElementById('goldHistoryToggle');
+  if (!block) return;
+  const isHidden = block.style.display === 'none';
+  block.style.display = isHidden ? 'block' : 'none';
+  if (toggleEl) {
+    const count = (state.goldEntries||[]).length;
+    toggleEl.textContent = isHidden
+      ? '▲ Hide history'
+      : `▶ Show history`;
+  }
+}
+
+function deleteGoldEntry(index) {
+  if (!state.goldEntries || !state.goldEntries[index]) return;
+  state.goldEntries.splice(index, 1);
+  saveState();
+  renderNetworthPage();
+  toast('Removed', 'success');
+}
+
+
 function renderNwHistory() {
   const container = document.getElementById('nwHistory');
   const chartEl   = document.getElementById('nwTrendChart');
@@ -1635,7 +1782,11 @@ function renderNwHistory() {
       const d   = state.networth[k];
       const [yr, mo] = k.split('-').map(Number);
       const loanTotal = (state.loans||[]).reduce((s,loan) => s + calcLoanOutstandingGeneric(loan,yr,mo), 0);
-      const goldT = (d.gold||[]).reduce((s,g) => s+(nwGoldRatePerGram>0&&g.grams?g.grams*nwGoldRatePerGram:g.amount||0),0);
+      const pk = `${yr}-${String(mo + 1).padStart(2, '0')}`;
+      const goldT = (state.goldEntries||[]).reduce((s,g) => {
+        const em = g.date ? g.date.substring(0,7) : null;
+        return (!em || em <= pk) ? s + (nwGoldRatePerGram>0&&g.grams?g.grams*nwGoldRatePerGram:g.amount||0) : s;
+      }, 0);
       const fdT   = (d.fd||[]).reduce((s,r)=>s+(r.amount||0),0);
       const rdT   = (d.rd||[]).reduce((s,r)=>s+(r.amount||0),0);
       const sav   = calcSavingsFromInvestments();
@@ -1699,7 +1850,11 @@ function addNwRow(type) {
   document.getElementById('nwRowAmount').value = '';
   document.getElementById('nwRowGramsGroup').style.display  = type==='gold' ? 'block' : 'none';
   document.getElementById('nwRowAmountGroup').style.display = 'block';
+  document.getElementById('nwRowDateGroup').style.display   = type==='gold' ? 'block' : 'none';
   const nalEl = document.getElementById('nwRowAmountLabel'); if (nalEl) nalEl.textContent = type==='gold' ? 'Fallback Value ₹ (if rate unavailable)' : 'Amount (₹)';
+  // Default date to today
+  const dateEl = document.getElementById('nwRowDate');
+  if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
   document.getElementById('nwRowModalBg').style.display     = 'flex';
 }
 
@@ -1718,7 +1873,10 @@ function saveNwRow() {
   if (_nwRowType === 'gold') {
     const grams = validateAmount(document.getElementById('nwRowGrams').value) || 0;
     if (!grams && !amount) { toast('Enter grams or amount', 'error'); return; }
-    d.gold.push({ name: name||'Gold', grams, amount });
+    const dateEl = document.getElementById('nwRowDate');
+    const date = (dateEl && dateEl.value) ? dateEl.value : `${y}-${String(m+1).padStart(2,'0')}-01`;
+    if (!state.goldEntries) state.goldEntries = [];
+    state.goldEntries.push({ date, grams, amount, name: name || 'Gold' });
   } else {
     if (!amount) { toast('Enter amount', 'error'); return; }
     d[_nwRowType].push({ name: name||(_nwRowType==='fd'?'FD':'RD'), amount });

@@ -342,7 +342,7 @@
             <span class="nw-field-label">Cash in Hand</span>
             <span class="nw-field-value" onclick="editNwField('cash')" id="nwv-cash">₹0 <span class="edit-hint">✎</span></span>
           </div>
-          <div class="nw-field">
+          <div class="nw-field" style="display:none;">
             <span class="nw-field-label">Total Investments <span class="nw-loan-auto">Auto</span></span>
             <span class="nw-field-value" id="nwv-savings" style="cursor:default;color:var(--accent);">₹0</span>
           </div>
@@ -519,6 +519,10 @@
     <div class="form-group" id="nwRowNameGroup">
       <label>Name / Description</label>
       <input type="text" id="nwRowName" placeholder="e.g. SBI FD, HDFC RD...">
+    </div>
+    <div class="form-group" id="nwRowDateGroup" style="display:none">
+      <label>Purchase Date</label>
+      <input type="date" id="nwRowDate">
     </div>
     <div class="form-group" id="nwRowGramsGroup" style="display:none">
       <label>Weight (grams)</label>
